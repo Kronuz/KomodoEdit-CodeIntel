@@ -146,7 +146,7 @@ cielementtree_ext = Extension(
 
 setup(
     name="CodeIntel",
-    version="0.1.0",
+    version="0.1.1",
     description="Komodo Edit CodeIntel",
     author="Komodo Edit Team",
     author_email="german.mb@gmail.com",
@@ -191,5 +191,6 @@ setup(
     package_data={'codeintel2': [
         'catalogs/*.cix',
         'stdlibs/*.cix',
+        'lexers/*.lexres',
     ]},
 )
