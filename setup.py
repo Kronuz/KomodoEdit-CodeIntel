@@ -146,7 +146,7 @@ cielementtree_ext = Extension(
 
 setup(
     name="CodeIntel",
-    version="0.1.1",
+    version="0.1.2",
     description="Komodo Edit CodeIntel",
     author="Komodo Edit Team",
     author_email="german.mb@gmail.com",
