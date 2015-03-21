@@ -148,6 +148,13 @@ setup(
     name="CodeIntel",
     version="0.1.3",
     description="Komodo Edit CodeIntel",
+    long_description="""\
+Code intelligence ported from Open Komodo Editor. Supports all the languages
+Komodo Editor supports for Code Intelligence (CIX, CodeIntel2):
+
+Go, JavaScript, Mason, XBL, XUL, RHTML, SCSS, Python, HTML, Ruby, Python3, XML,
+Sass, XSLT, Django, HTML5, Perl, CSS, Twig, Less, Smarty, Node.js, Tcl,
+TemplateToolkit, PHP.""",
     author="Komodo Edit Team",
     author_email="german.mb@gmail.com",
     license="GPL",
@@ -165,6 +172,7 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
     ],
+    keywords='codeintel intellisense autocomplete ide languages python go javascript mason xbl xul rhtml scss python html ruby python3 xml sass xslt django html5 perl css twig less smarty node tcl templatetoolkit php',
     install_requires=[
         'six',
         'zope.cachedescriptors',
