@@ -146,7 +146,7 @@ cielementtree_ext = Extension(
 
 setup(
     name="CodeIntel",
-    version="0.1.3",
+    version="0.1.4",
     description="Komodo Edit CodeIntel",
     long_description="""\
 Code intelligence ported from Open Komodo Editor. Supports all the languages
