@@ -83,6 +83,9 @@ silvercity_ext = Extension(
     '_SilverCity',
     silvercity_src_files,
     include_dirs=silvercity_include_dirs,
+    extra_compile_args=[],
+    extra_link_args=['-static-libstdc++'],
+    # extra_objects=['libpcre.a'],
     libraries=['pcre'],
 )
 
