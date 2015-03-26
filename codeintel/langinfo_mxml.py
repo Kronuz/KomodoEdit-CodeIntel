@@ -1,0 +1,1 @@
+../../src/udl/skel/MXML/pylib/langinfo_mxml.py

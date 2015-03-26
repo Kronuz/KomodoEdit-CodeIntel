@@ -1,0 +1,1 @@
+../../src/modules/golang/pylib/langinfo_go.py

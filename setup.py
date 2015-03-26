@@ -9,7 +9,7 @@ from setuptools import setup, Extension
 
 silvercity_src_files = []
 
-silvercity_src = 'silvercity_src/PySilverCity/Src'
+silvercity_src = 'silvercity/PySilverCity/Src'
 
 # Add Python extension source files
 silvercity_src_files.extend([
@@ -21,7 +21,7 @@ silvercity_src_files.extend([
     ]
 ])
 
-silvercity_libsrc = 'silvercity_src/Lib/Src'
+silvercity_libsrc = 'silvercity/Lib/Src'
 
 # Add library source files
 silvercity_src_files.extend([
@@ -80,7 +80,7 @@ silvercity_include_dirs = [
 ]
 
 silvercity_ext = Extension(
-    '_SilverCity',
+    'codeintel.SilverCity._SilverCity',
     silvercity_src_files,
     include_dirs=silvercity_include_dirs,
     extra_compile_args=[],
@@ -93,10 +93,10 @@ silvercity_ext = Extension(
 # sgmlop (it's in PyPI but as an external)
 
 sgmlop_include_dirs = [
-    'sgmlop',
+    'codeintel.sgmlop',
 ]
 sgmlop_ext = Extension(
-    'sgmlop', [
+    'codeintel.sgmlop', [
         'sgmlop/sgmlop.c',
     ],
     include_dirs=sgmlop_include_dirs,
@@ -110,7 +110,7 @@ celementtree_include_dirs = [
     'cElementTree/expat',
 ]
 celementtree_ext = Extension(
-    'cElementTree', [
+    'codeintel.cElementTree', [
         'cElementTree/cElementTree.c',
         'cElementTree/expat/xmlparse.c',
         'cElementTree/expat/xmlrole.c',
@@ -131,7 +131,7 @@ cielementtree_include_dirs = [
     'ciElementTree/expat',
 ]
 cielementtree_ext = Extension(
-    'ciElementTree', [
+    'codeintel.ciElementTree', [
         'ciElementTree/cElementTree.c',
         'ciElementTree/expat/xmlparse.c',
         'ciElementTree/expat/xmlrole.c',
@@ -149,7 +149,7 @@ cielementtree_ext = Extension(
 
 setup(
     name="CodeIntel",
-    version="0.1.5",
+    version="0.1.6",
     description="Komodo Edit CodeIntel",
     long_description="""\
 Code intelligence ported from Open Komodo Editor. Supports all the languages
@@ -193,13 +193,13 @@ TemplateToolkit, PHP.""",
     },
     packages=[
         'codeintel',
-        'codeintel2',
-        'codeintel2.oop',
-        'codeintel2.database',
-        'elementtree',
-        'SilverCity',
+        'codeintel.codeintel2',
+        'codeintel.codeintel2.oop',
+        'codeintel.codeintel2.database',
+        'codeintel.elementtree',
+        'codeintel.SilverCity',
     ],
-    package_data={'codeintel2': [
+    package_data={'codeintel.codeintel2': [
         'catalogs/*.cix',
         'stdlibs/*.cix',
         'lexers/*.lexres',
