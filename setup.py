@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import sys
 
 from setuptools import setup, Extension
 
@@ -8,6 +9,10 @@ from setuptools import setup, Extension
 # SilverCity (it's in PyPI, but unpatched, this one is patched)
 
 silvercity_src_files = []
+silvercity_extra_link_args = []
+silvercity_extra_objects = []
+silvercity_define_macros = []
+silvercity_libraries = []
 
 silvercity_src = 'silvercity/PySilverCity/Src'
 
@@ -65,10 +70,65 @@ silvercity_src_files.extend([
 
 # Add Scintilla lexers
 for file in os.listdir(scintilla_lexers):
-    file = os.path.join(scintilla_lexers, file)
-    if os.path.basename(file).startswith('Lex') and \
-       os.path.splitext(file)[1] == '.cxx':
-        silvercity_src_files.append(file)
+    file_ = os.path.join(scintilla_lexers, file)
+    if os.path.basename(file_).startswith('Lex') and \
+       os.path.splitext(file_)[1] == '.cxx':
+        silvercity_src_files.append(file_)
+
+# Add pcre source files
+pcre_src = 'pcre'
+pcre_h_name = os.path.join(pcre_src, 'pcre.h')
+if not os.path.exists(pcre_h_name):
+    with open(os.path.join(pcre_src, 'pcre.in')) as pcre_in:
+        with open(pcre_h_name, 'w') as pcre_h:
+            pcre_h.write(pcre_in.read())
+pcre_dftables_c_name = os.path.join(pcre_src, 'pcre_dftables.c')
+if not os.path.exists(pcre_dftables_c_name):
+    # pcre_dftables.c is originally generated using the
+    # command ``dftables pcre_dftables.c``
+    with open('pcre_dftables.c.in') as pcre_dftables_c_in:
+        with open(pcre_dftables_c_name, 'w') as pcre_dftables_c:
+            pcre_dftables_c.write(pcre_dftables_c_in.read())
+config_h_name = os.path.join(pcre_src, 'config.h')
+if not os.path.exists(config_h_name):
+    with open(config_h_name, 'w') as config_h:
+        config_h.write('/* Fake config.h */')
+silvercity_define_macros.extend([
+    ('PCRE_STATIC', None),
+    ('HAVE_STRERROR', None),
+    ('HAVE_MEMMOVE', None),
+    ('HAVE_BCOPY', None),
+    ('NEWLINE', "'\\n'"),
+    ('LINK_SIZE', 2),
+    ('MATCH_LIMIT', 10000000),
+    ('POSIX_MALLOC_THRESHOLD', 10),
+    ('EXPORT', ""),
+])
+silvercity_src_files.extend([
+    os.path.join(pcre_src, file) for file in [
+        'pcre_compile.c',
+        'pcre_config.c',
+        'pcre_dfa_exec.c',
+        'pcre_exec.c',
+        'pcre_fullinfo.c',
+        'pcre_get.c',
+        'pcre_globals.c',
+        'pcre_info.c',
+        'pcre_maketables.c',
+        'pcre_ord2utf8.c',
+        'pcre_printint.c',
+        'pcre_refcount.c',
+        'pcre_study.c',
+        'pcre_tables.c',
+        'pcre_try_flipped.c',
+        'pcre_ucp_findchar.c',
+        'pcre_valid_utf8.c',
+        'pcre_version.c',
+        'pcre_xclass.c',
+        'pcre_dftables.c',
+    ]
+])
+
 
 silvercity_include_dirs = [
     scintilla_src,
@@ -77,16 +137,19 @@ silvercity_include_dirs = [
     scintilla_include,
     silvercity_src,
     silvercity_libsrc,
+    pcre_src,
 ]
+
 
 silvercity_ext = Extension(
     'codeintel.SilverCity._SilverCity',
     silvercity_src_files,
     include_dirs=silvercity_include_dirs,
     extra_compile_args=[],
-    extra_link_args=['-static-libstdc++'],
-    # extra_objects=['libpcre.a'],
-    libraries=['pcre'],
+    define_macros=silvercity_define_macros,
+    extra_link_args=silvercity_extra_link_args,
+    extra_objects=silvercity_extra_objects,
+    libraries=silvercity_libraries,
 )
 
 ########################################################################
@@ -118,7 +181,7 @@ celementtree_ext = Extension(
     ],
     define_macros=[
         ('XML_STATIC', None),
-        ('HAVE_MEMMOVE', "1"),
+        ('HAVE_MEMMOVE', None),
     ],
     include_dirs=celementtree_include_dirs,
 )
@@ -139,7 +202,7 @@ cielementtree_ext = Extension(
     ],
     define_macros=[
         ('XML_STATIC', None),
-        ('HAVE_MEMMOVE', "1"),
+        ('HAVE_MEMMOVE', None),
     ],
     include_dirs=cielementtree_include_dirs,
 )
@@ -147,9 +210,19 @@ cielementtree_ext = Extension(
 ########################################################################
 # codeintel
 
+install_requires = [
+    'six',
+    'zope.cachedescriptors',
+    'inflector',
+]
+
+if sys.platform != 'win32':
+    # subprocess32 is not available for windows
+    install_requires.append('subprocess32')
+
 setup(
     name="CodeIntel",
-    version="0.1.6",
+    version="0.1.7",
     description="Komodo Edit CodeIntel",
     long_description="""\
 Code intelligence ported from Open Komodo Editor. Supports all the languages
@@ -176,12 +249,7 @@ TemplateToolkit, PHP.""",
         "Programming Language :: Python :: 2.7",
     ],
     keywords='codeintel intellisense autocomplete ide languages python go javascript mason xbl xul rhtml scss python html ruby python3 xml sass xslt django html5 perl css twig less smarty node tcl templatetoolkit php',
-    install_requires=[
-        'six',
-        'zope.cachedescriptors',
-        'subprocess32',
-        'inflector',
-    ],
+    install_requires=install_requires,
     ext_modules=[
         silvercity_ext,
         celementtree_ext,
