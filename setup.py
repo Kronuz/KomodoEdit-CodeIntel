@@ -4,6 +4,7 @@ import sys
 
 from setuptools import setup, Extension
 
+VERSION = "0.1.8"
 
 ########################################################################
 # SilverCity (it's in PyPI, but unpatched, this one is patched)
@@ -222,7 +223,7 @@ if sys.platform != 'win32':
 
 setup(
     name="CodeIntel",
-    version="0.1.7",
+    version=VERSION,
     description="Komodo Edit CodeIntel",
     long_description="""\
 Code intelligence ported from Open Komodo Editor. Supports all the languages
