@@ -355,6 +355,9 @@ class CodeIntelManager(threading.Thread):
             sock.listen(0)
 
             db_base_dir = os.path.expanduser('~/.codeintel')
+            if not os.path.exists(db_base_dir):
+                os.makedirs(db_base_dir)
+
             connect = "%s:%s" % sock.getsockname()
 
             log_file = os.path.join(db_base_dir, 'codeintel.log')

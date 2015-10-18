@@ -50,9 +50,12 @@ class DummyStream(object):
 
 def oop_driver(db_base_dir, connect=None, log_levels=[], log_file=None):
     if log_file:
-        if log_file in ('stdout', 'stderr'):
+        if log_file in ('stdout', 'stderr', '/dev/stdout', '/dev/stderr'):
             stream = getattr(sys, log_file)
         else:
+            log_dir = os.path.dirname(log_file)
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
             stream = open(log_file, 'w', 0)
         logging.basicConfig(stream=stream)
         # XXX marky horrible ugly hack
@@ -83,7 +86,7 @@ def oop_driver(db_base_dir, connect=None, log_levels=[], log_file=None):
     except:
         log.exception("Failed to set process CPU priority")
 
-    if connect:
+    if connect and connect not in ('-', 'stdin', '/dev/stdin'):
         host, _, port = connect.partition(':')
         port = int(port)
         log.debug("connecting to: %s:%s", host, port)
@@ -95,6 +98,8 @@ def oop_driver(db_base_dir, connect=None, log_levels=[], log_file=None):
         fd_in = sys.stdin
         fd_out = os.fdopen(sys.stdout.fileno(), 'wb', 0)
 
+    if not os.path.exists(db_base_dir):
+        os.makedirs(db_base_dir)
     driver = Driver(db_base_dir=db_base_dir, fd_in=fd_in, fd_out=fd_out)
     try:
         driver.start()
