@@ -612,7 +612,7 @@ class CodeIntelManager(threading.Thread):
         calling thread until the data has been written (though possibly not yet
         received on the other end).
         """
-        if self.state is CodeIntelManager.STATE_QUITTING:
+        if not self.pipe or self.state is CodeIntelManager.STATE_QUITTING:
             return  # Nope, eating all commands during quit
         req_id = hex(self._next_id)
         kwargs['req_id'] = req_id
@@ -628,8 +628,7 @@ class CodeIntelManager(threading.Thread):
         length = "%i" % len(text)
         length = length.encode('utf-8')
         buf = length + text
-        if self.pipe:
-            self.pipe.write(buf)
+        self.pipe.write(buf)
 
     def run(self):
         """Event loop for the codeintel manager background thread"""
