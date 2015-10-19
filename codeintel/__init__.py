@@ -49,6 +49,18 @@ class DummyStream(object):
 
 
 def oop_driver(db_base_dir, connect=None, log_levels=[], log_file=None):
+    """
+    Starts OOP CodeIntel driver
+    Args:
+        :param db_base_dir:  Directory where CodeIntel database is.
+        :param connect:      Connect using a socket to this 'IP:port'. It can
+                             also be an output file, for example 'stdin'
+        :param log_levels:   List of logger:LEVEL, where logger can be,
+                             for example, "codeintel.db" and level "DEBUG":
+                             ['codeintel:WARNING', 'codeintel.db:DEBUG']
+        :param log_file:     File where logs will be written. It can be 'stdout'
+                             or 'stderr', for example
+    """
     if log_file:
         if log_file in ('stdout', 'stderr', '/dev/stdout', '/dev/stderr'):
             stream = getattr(sys, log_file)
