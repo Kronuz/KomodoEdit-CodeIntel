@@ -4,7 +4,7 @@ import sys
 
 from setuptools import setup, Extension
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 ########################################################################
 # SilverCity (it's in PyPI, but unpatched, this one is patched)
@@ -269,8 +269,9 @@ TemplateToolkit, PHP.""",
         'codeintel.SilverCity',
     ],
     package_data={'codeintel.codeintel2': [
+        'lexers/*.lexres',
         'catalogs/*.cix',
         'stdlibs/*.cix',
-        'lexers/*.lexres',
+        'golib/*.go',
     ]},
 )
