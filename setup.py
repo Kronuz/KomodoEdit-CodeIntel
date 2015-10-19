@@ -4,7 +4,7 @@ import sys
 
 from setuptools import setup, Extension
 
-VERSION = "0.1.9"
+VERSION = "0.2.0"
 
 ########################################################################
 # SilverCity (it's in PyPI, but unpatched, this one is patched)
