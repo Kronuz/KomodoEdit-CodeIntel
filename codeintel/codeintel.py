@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit 9288085230ef9f9d25ca3e8174656f3ce4f40a9a
+# at commit 2e18df9bc77ac62bf5fe695eda3688155e4fd142
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -74,20 +74,25 @@ class CodeIntel(object):
             for obj in self._observers.keys():
                 obj.observer(topic, data)
 
-    def _on_mgr_init(self, mgr, message, progress=None):
+    def _on_mgr_progress(self, mgr, message, progress=None, state=None):
+        self.log.debug("Progress: [%s] %s%% @%s=%s", message, progress, state, mgr.state if mgr else "<None>")
         summary = None
         if progress == "(ABORTED)":
+            # abort
+            self.log.debug("Got abort message")
             summary = "Code Intelligence Initialization Aborted"
-        elif not mgr or mgr.state is CodeIntelManager.STATE_DESTROYED:
+        elif state in (None, CodeIntelManager.STATE_DESTROYED):
+            self.log.debug("startup failed: %s", message)
             summary = "Startup failed: %s", message
-        elif mgr.state is CodeIntelManager.STATE_BROKEN:
+        elif state is CodeIntelManager.STATE_BROKEN:
+            self.log.debug("db is broken, needs manual intervention")
             summary = "There is an error with your code intelligence database; it must be reset before it can be used."
-        elif mgr.state is CodeIntelManager.STATE_READY:
-            pass  # nothing to report
+        elif state is CodeIntelManager.STATE_READY:
+            self.log.debug("db is ready")
         elif message is None and progress is None:
-            pass  # nothing to report
+            self.log.debug("nothing to report")
         else:
-            # progress update, not finished yet
+            self.log.debug("progress update, not finished yet")
             if isinstance(progress, (int, float)):
                 self.notify_observers('progress', dict(message=message, progress=progress))
         if summary:
@@ -117,7 +122,7 @@ class CodeIntel(object):
             if not self.mgr:
                 self.mgr = CodeIntelManager(
                     self,
-                    init_callback=self._on_mgr_init,
+                    init_callback=self._on_mgr_progress,
                     shutdown_callback=self._on_mgr_shutdown,
                     oop_command=oop_command,
                     log_levels=log_levels,
@@ -358,7 +363,8 @@ class CodeIntelManager(threading.Thread):
             pass  # umm... no idea?
         self.state = CodeIntelManager.STATE_DESTROYED
         self.pipe = None
-        self._shutdown_callback(self)
+        if self._shutdown_callback:
+            self._shutdown_callback(self)
 
     def init_child(self):
         import process
@@ -428,7 +434,11 @@ class CodeIntelManager(threading.Thread):
                 self.kill()
             if state is not None:
                 self.state = state
-            self._init_callback(self, message, progress)
+            if response is not None:
+                message += "\n" + response.get("message", "(No further information available)")
+            if any(x is not None for x in (message, progress, state)):
+                # don't do anything if everything we have is just none
+                self._init_callback(self, message, progress, state)
 
         def get_citadel_langs(request, response):
             if not response.get('success', False):
@@ -482,7 +492,7 @@ class CodeIntelManager(threading.Thread):
                 update("Codeintel startup aborted", progress="(ABORTED)")
                 return
 
-            update(response.get('message'), state=None, progress=response.get('progress'))
+            update(response.get('message'), state=self.state, progress=response.get('progress'))
 
             if 'success' not in response:
                 # status update
