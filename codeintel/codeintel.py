@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit 2e18df9bc77ac62bf5fe695eda3688155e4fd142
+# at commit 8b791b92166ebb3b658c88e493a36ebbe884539b
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -942,6 +942,41 @@ class CodeIntelBuffer(object):
             silent=silent,
             keep_existing=keep_existing,
             callback=callback,
+        )
+
+    def to_html_async(self, callback, flags=None, title=None):
+        def invoke_callback(request, response):
+            try:
+                if response.get('success'):
+                    RESULT_SUCCESSFUL = True
+                    callback(RESULT_SUCCESSFUL, response.get('html'))
+                else:
+                    RESULT_ERROR = False
+                    callback(RESULT_ERROR, None)
+            except:
+                self.log.exception("Error calling to_html callback")
+
+        flag_dict = {
+            'include_styling': True,
+            'include_html': True,
+            'do_trg': True,
+            'do_eval': True,
+        }
+        if flags is not None:
+            flag_dict.update(flags)
+
+        self.service.send(
+            command='buf-to-html',
+            path=self.path,
+            language=self.lang,
+            text=self.text,
+            env={
+                'env': self.env,
+                'prefs': self.prefs,
+            },
+            title=title,
+            flags=flag_dict,
+            callback=invoke_callback,
         )
 
     def get_calltip_arg_range(self, handler, trg_pos, calltip, curr_pos):
