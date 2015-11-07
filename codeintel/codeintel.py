@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit 26e896dc40120081cea22ef2ecced387ec04407c
+# at commit 3bd6654c45f868a08a82d36471cf1c1f6e94ee54
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -494,7 +494,7 @@ class CodeIntelManager(threading.Thread):
             assert self.proc.returncode is None, "Early process death!"
 
             self._watchdog_thread = threading.Thread(
-                target=self._watchdog_thread,
+                target=self._run_watchdog_thread,
                 name="CodeIntel Subprocess Watchdog Thread",
                 args=(self.proc,),
             )
@@ -514,7 +514,7 @@ class CodeIntelManager(threading.Thread):
             except:
                 pass
 
-    def _watchdog_thread(self, proc):
+    def _run_watchdog_thread(self, proc):
         self.log.debug("Watchdog witing for OOP codeintel process to die...")
         if hasattr(proc, 'wait'):
             proc.wait()
