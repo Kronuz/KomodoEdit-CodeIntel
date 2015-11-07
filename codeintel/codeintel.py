@@ -23,6 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
+# at commit 9288085230ef9f9d25ca3e8174656f3ce4f40a9a
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
