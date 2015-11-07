@@ -231,8 +231,6 @@ class CodeIntel(object):
             return None
         path = os.path.normcase(path)  # Fix case on Windows
         for vid, buf in list(self.buffers.items()):
-            if buf.path:
-                continue
             if os.path.normcase(buf.path) == path:
                 return buf
         return None
