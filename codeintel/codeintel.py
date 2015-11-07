@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit 44ddca69632adcc4b6df9aa9164f7df0c3456350
+# at commit 834598444f8250f15a289c760f1087d00da79e32
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -820,9 +820,11 @@ class CodeIntelManager(threading.Thread):
             # unsolicited response, look for a handler
             try:
                 if not response_command:
+                    self.log.error("No 'command' in response %r", response)
                     raise ValueError("Invalid response frame %r" % response)
                 meth = getattr(self, 'do_' + response_command.replace('-', '_'), None)
                 if not meth:
+                    self.log.error("Unknown command %r, response %r", response_command, response)
                     raise ValueError("Unknown unsolicited response \"%s\"" % response_command)
                 meth(response)
             except:
