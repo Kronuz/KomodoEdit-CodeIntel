@@ -23,11 +23,12 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit f16b548235864db8216400d8bbe4e70aaaff8508
+# at commit 40ccb140ac73935a63e6455ec39f2b976e33024d
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
 import os
+import sys
 
 import json
 import time
@@ -111,7 +112,7 @@ class CodeIntel(object):
             if self.mgr is mgr:
                 self.mgr = None
 
-    def activate(self, reset_db_as_necessary=False, oop_command=None, log_levels=None, env=None, prefs=None):
+    def activate(self, reset_db_as_necessary=False, oop_command=None, oop_mode=None, log_levels=None, env=None, prefs=None):
         self.log.debug("activating codeintel service")
 
         if self._quit_application:
@@ -130,6 +131,7 @@ class CodeIntel(object):
                     init_callback=self._on_mgr_progress,
                     shutdown_callback=self._on_mgr_shutdown,
                     oop_command=oop_command,
+                    oop_mode=oop_mode,
                     log_levels=log_levels,
                     env=env,
                     prefs=prefs,
@@ -280,6 +282,65 @@ class _TCPConnection(_Connection):
         if self.sock:
             self.sock.close()
 
+if sys.platform.startswith("win"):
+    from win32_named_pipe import Win32Pipe
+
+    class _PipeConnection(Win32Pipe):
+        """This is a wrapper around our Win32Pipe class to expose the expected
+        API"""
+        pipe_prefix = "codeintel-"
+
+        def get_commandline_args(self):
+            return ['--connect', 'pipe:%s' % (self.name,)]
+
+        def get_stream(self):
+            self._ensure_stream()
+            return self
+
+        def cleanup(self):
+            return
+    del Win32Pipe
+else:
+    # posix pipe class
+    class _PipeConnection(_Connection):
+        _dir = None
+        _read = None
+        _write = None
+
+        def get_commandline_args(self):
+            import tempfile
+            self._dir = tempfile.mkdtemp(prefix='codeintel-', suffix='-oop-pipes')
+            os.mkfifo(os.path.join(self._dir, 'in'), 0600)
+            os.mkfifo(os.path.join(self._dir, 'out'), 0600)
+            return ['--connect', 'pipe:%s' % (self._dir,)]
+
+        def get_stream(self):
+            # Open the write end first, so that the child doesn't hang
+            self._read = open(os.path.join(self._dir, 'out'), 'rb', 0)
+            self._write = open(os.path.join(self._dir, 'in'), 'wb', 0)
+            return self
+
+        def read(self, count):
+            return self._read.read(count)
+
+        def write(self, data):
+            return self._write.write(data)
+
+        def cleanup(self):
+            # don't close the streams here, but remove the files.  The fds are
+            # left open so we can communicate through them, but we no longer
+            # need the file names around.
+            os.remove(self._read.name)
+            os.remove(self._write.name)
+            try:
+                os.rmdir(self._dir)
+            except OSError:
+                pass
+
+        def close(self):
+            self._read.close()
+            self._write.close()
+
 
 class CodeIntelManager(threading.Thread):
     STATE_UNINITIALIZED = ("uninitialized",)  # not initialized
@@ -290,6 +351,7 @@ class CodeIntelManager(threading.Thread):
     STATE_DESTROYED = ("destroyed",)  # connection shut down, child process dead
 
     _oop_command = '/usr/local/bin/codeintel'
+    _oop_mode = 'pipe'
     _log_levels = ['WARNING']
     _state = STATE_UNINITIALIZED
     _send_request_thread = None  # background thread to send unsent requests
@@ -328,7 +390,7 @@ class CodeIntelManager(threading.Thread):
         },
     ]
 
-    def __init__(self, service, init_callback=None, shutdown_callback=None, oop_command=None, log_levels=None, env=None, prefs=None):
+    def __init__(self, service, init_callback=None, shutdown_callback=None, oop_command=None, oop_mode=None, log_levels=None, env=None, prefs=None):
         self.log = logging.getLogger(logger_name + '.' + self.__class__.__name__)
         self.service = service
         self.languages = service.languages
@@ -338,6 +400,8 @@ class CodeIntelManager(threading.Thread):
         self._shutdown_callback = shutdown_callback
         if oop_command is not None:
             self._oop_command = oop_command
+        if oop_mode is not None:
+            self._oop_mode = oop_mode
         if log_levels is not None:
             self._log_levels = log_levels
         if prefs is not None:
@@ -435,7 +499,15 @@ class CodeIntelManager(threading.Thread):
             cmd += ['--log-file', os.path.join(database_dir, 'codeintel.log')]
             for log_level in self._log_levels:
                 cmd += ['--log-level', log_level]
-            conn = _TCPConnection()
+
+            _oop_mode = self._oop_mode
+            if _oop_mode == 'pipe':
+                conn = _PipeConnection()
+            elif _oop_mode == 'tcp':
+                conn = _TCPConnection()
+            else:
+                self.log.warn("Unknown codeintel oop mode %s, falling back to pipes", _oop_mode)
+                conn = _PipeConnection()
             cmd += conn.get_commandline_args()
 
             self.log.debug("Running OOP: %s", " ".join(cmd))
@@ -750,6 +822,7 @@ class CodeIntelManager(threading.Thread):
                             del self.requests[req_id]
         except Exception as ex:
             if isinstance(ex, IOError) and self.state in (CodeIntelManager.STATE_QUITTING, CodeIntelManager.STATE_DESTROYED):
+                self.log.debug("IOError in codeintel during shutdown; ignoring")
                 return  # this is intentional
             self.log.exception("Error reading data from codeintel")
             self.kill()
