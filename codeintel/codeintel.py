@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit 95bdd903a7b71cee0d5fa705deb85d1a75b05501
+# at commit 26e896dc40120081cea22ef2ecced387ec04407c
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -37,7 +37,6 @@ import logging
 import socket
 import weakref
 import functools
-import hashlib
 
 try:
     import queue
@@ -65,10 +64,6 @@ class CodeIntel(object):
         self._quit_application = False  # app is shutting down, don't try to respawn
         self._observers = weakref.WeakKeyDictionary()
         self._enabled = False
-
-        # Registered handlers for unsolicited responses; takes two arguments,
-        # (manager, response).  Note that both are transient.
-        self._unsolicited_response_handlers = {}
 
     def add_observer(self, obj):
         if hasattr(obj, 'observer'):
@@ -154,14 +149,6 @@ class CodeIntel(object):
         except RuntimeError:
             # thread already started
             pass
-
-    def addUnsolicitedResponseHandler(self, command, handler):
-        """Register a handler for an unsolicited response.  If a command is
-        registered multiple times, only the last-registered handler will be
-        used.  Each handler must be a callable taking two arguments: the manager
-        involved, and the unsolicited response received.  Python-only.
-        """
-        self._unsolicited_response_handlers[command] = handler
 
     @property
     def enabled(self):
@@ -413,15 +400,6 @@ class CodeIntelManager(threading.Thread):
         self.requests = {}  # keyed by request id; value is tuple (callback, request data, time sent) requests will time out at some point...
         self.unsent_requests = queue.Queue()
         threading.Thread.__init__(self, name="CodeIntel Manager Thread")
-
-        for attr in dir(self):
-            if not attr.startswith("do_"):
-                continue
-            handler = getattr(self, attr)
-            if not callable(handler):
-                continue
-            command = attr[len("do_"):].replace("_", "-")
-            service.addUnsolicitedResponseHandler(command, handler)
 
     @property
     def state(self):
@@ -720,7 +698,8 @@ class CodeIntelManager(threading.Thread):
         Requests are expected to be well-formed (has a command, etc.)
         The callback recieves two arguments, the request and the response,
         both as dicts.
-        @note The callback is invoked on the main thread."""
+        @note The callback is invoked on a background thread; proxy it to
+        the main thread if desired."""
         if self.state is CodeIntelManager.STATE_DESTROYED:
             raise RuntimeError("Manager already shut down")
         self.unsent_requests.put((callback, kwargs))
@@ -838,7 +817,7 @@ class CodeIntelManager(threading.Thread):
             try:
                 if not response_command:
                     raise ValueError("Invalid response frame %r" % response)
-                meth = self.service._unsolicited_response_handlers.get(response_command)
+                meth = getattr(self, 'do_' + response_command.replace('-', '_'), None)
                 if not meth:
                     raise ValueError("Unknown unsolicited response \"%s\"" % response_command)
                 meth(response)
@@ -894,47 +873,6 @@ class CodeIntelManager(threading.Thread):
         self.kill()
         if self.is_alive():
             self.join(1)
-
-    def do_get_buffer_contents(self, response):
-        """Unsolicited response handler: getting the contents of a buffer"""
-        path = response.get('path')
-        self.log.debug("Getting contents for %s", path)
-        try:
-            buf = self.service.buf_from_path(path)
-            doc_hash = hashlib.md5(buf.text).hexdigest()
-            if response.get('checksum') == doc_hash:
-                # No change
-                self.send(
-                    command='get-buffer-contents',
-                    path=path,
-                    env={
-                        'env': buf.env,
-                        'prefs': buf.prefs,
-                    },
-                    success=True,
-                    callback=False,
-                )
-            else:
-                self.send(
-                    command='get-buffer-contents',
-                    path=path,
-                    text=buf.text,
-                    env={
-                        'env': buf.env,
-                        'prefs': buf.prefs,
-                    },
-                    success=True,
-                    callback=False,
-                )
-        except:
-            self.log.exception("Failed to get contents of %s", path)
-            self.send(
-                command='get-buffer-contents',
-                path=path,
-                success=False,
-                callback=False,
-            )
-        self.log.debug("Done")
 
 
 class CodeIntelBuffer(object):
@@ -1056,6 +994,7 @@ class CodeIntelBuffer(object):
                 'prefs': self.prefs,
             },
             implicit=implicit,
+            text=self.text,
             encoding='utf-8',
             callback=functools.partial(self._post_trg_from_pos_handler, handler, 'trg_from_pos')
         )
@@ -1070,6 +1009,7 @@ class CodeIntelBuffer(object):
                 'env': self.env,
                 'prefs': self.prefs,
             },
+            text=self.text,
             encoding='utf-8',
             callback=functools.partial(self._post_trg_from_pos_handler, handler, 'preceding_trg_from_pos'),
             **{'curr-pos': curr_pos}
@@ -1086,6 +1026,7 @@ class CodeIntelBuffer(object):
                 'env': self.env,
                 'prefs': self.prefs,
             },
+            text=self.text,
             encoding='utf-8',
             callback=functools.partial(self._post_trg_from_pos_handler, handler, 'defn_trg_from_pos')
         )
@@ -1128,7 +1069,6 @@ class CodeIntelBuffer(object):
             trg=trg,
             silent=silent,
             keep_existing=keep_existing,
-            checksum=hashlib.md5(self.text).hexdigest(),
             callback=callback,
         )
 
@@ -1157,6 +1097,7 @@ class CodeIntelBuffer(object):
             command='buf-to-html',
             path=self.path,
             language=self.lang,
+            text=self.text,
             env={
                 'env': self.env,
                 'prefs': self.prefs,
@@ -1190,6 +1131,7 @@ class CodeIntelBuffer(object):
             command='calltip-arg-range',
             path=self.path,
             language=self.lang,
+            text=self.text,
             encoding='utf-8',
             trg_pos=trg_pos,
             calltip=calltip,
