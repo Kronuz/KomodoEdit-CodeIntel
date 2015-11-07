@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit ba7399a883b0b39ab95c88183dc73f20925b08c3
+# at commit f16b548235864db8216400d8bbe4e70aaaff8508
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -249,6 +249,38 @@ class CodeIntel(object):
         return None
 
 
+class _Connection(object):
+    def get_commandline_args(self):
+        """Return list of command line args to pass to child"""
+        raise NotImplementedError()
+
+    def get_stream(self):
+        """Return file-like object for read/write"""
+        raise NotImplementedError()
+
+    def cleanup(self):
+        """Do any cleanup required"""
+
+
+class _TCPConnection(_Connection):
+    """A connection using TCP sockets"""
+    def __init__(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.bind(('127.0.0.1', 0))
+        self.sock.listen(0)
+
+    def get_commandline_args(self):
+        return ["--connect", "%s:%s" % self.sock.getsockname()]
+
+    def get_stream(self):
+        conn = self.sock.accept()
+        return conn[0].makefile('r+b', 0)
+
+    def cleanup(self):
+        if self.sock:
+            self.sock.close()
+
+
 class CodeIntelManager(threading.Thread):
     STATE_UNINITIALIZED = ("uninitialized",)  # not initialized
     STATE_CONNECTED = ("connected",)  # child process spawned, connection up; not ready
@@ -391,21 +423,20 @@ class CodeIntelManager(threading.Thread):
         assert threading.current_thread().name != "MainThread", \
             "CodeIntelManager.init_child should run on background thread!"
         self.log.debug("initializing child process")
+        conn = None
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.bind(('127.0.0.1', 0))
-            sock.listen(0)
-            connect = "%s:%s" % sock.getsockname()
-
-            db_base_dir = os.path.expanduser('~/.codeintel')
-            log_file = os.path.join(db_base_dir, 'codeintel.log')
-            log_levels = ','.join(self._log_levels)
-            args = [db_base_dir, connect, log_levels, log_file]
-
             _oop_command = self._oop_command
             if not os.path.exists(_oop_command):
                 _oop_command = os.path.basename(_oop_command)
-            cmd = [_oop_command] + args
+            cmd = [_oop_command]
+
+            database_dir = os.path.expanduser('~/.codeintel')
+            cmd += ['--database-dir', database_dir]
+            cmd += ['--log-file', os.path.join(database_dir, 'codeintel.log')]
+            for log_level in self._log_levels:
+                cmd += ['--log-level', log_level]
+            conn = _TCPConnection()
+            cmd += conn.get_commandline_args()
 
             self.log.debug("Running OOP: %s", " ".join(cmd))
             self.proc = process.ProcessOpen(cmd, cwd=None, env=None)
@@ -418,17 +449,19 @@ class CodeIntelManager(threading.Thread):
             )
             self._watchdog_thread.start()
 
-            self.conn = sock.accept()
-            sock.close()  # no need to keep listening
-            self.pipe = self.conn[0].makefile('rwb', 0)
+            self.pipe = conn.get_stream()
             self.state = CodeIntelManager.STATE_CONNECTED
         except Exception as e:
             self.kill()
             message = "Error initing child: %s" % e
-            self.log.debug(message)
+            self.log.debug(message, exc_info=True)
             self._init_callback(self, message)
         else:
             self._send_init_requests()
+            try:
+                conn.cleanup()
+            except:
+                pass
 
     def _watchdog_thread(self, proc):
         self.log.debug("Watchdog witing for OOP codeintel process to die...")
@@ -658,7 +691,11 @@ class CodeIntelManager(threading.Thread):
         length = "%i" % len(text)
         length = length.encode('utf-8')
         buf = length + text
-        self.pipe.write(buf)
+        try:
+            self.pipe.write(buf)
+        except Exception as ex:
+            self.log.error("Failed to write to pipe (%s): (%i) %s", ex, len(text), text)
+            raise
 
     def run(self):
         """Event loop for the codeintel manager background thread"""

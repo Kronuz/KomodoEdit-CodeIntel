@@ -22,10 +22,16 @@
 # Portions created by ActiveState Software Inc are Copyright (C) 2000-2007
 # ActiveState Software Inc. All Rights Reserved.
 #
+# Mostly based in Komodo Editor's oop-driver.py
+# at commit 40ccb140ac73935a63e6455ec39f2b976e33024d
+#
 from __future__ import absolute_import, unicode_literals, print_function
 
 import os
 import sys
+import argparse
+
+__version__ = "0.2.1"
 
 __file__ = os.path.normpath(os.path.abspath(__file__))
 __path__ = os.path.dirname(__file__)
@@ -37,8 +43,6 @@ if python_sitelib_path not in sys.path:
 import socket
 import logging
 
-from codeintel2.oop import Driver
-
 
 class DummyStream(object):
     def write(self, message):
@@ -48,11 +52,11 @@ class DummyStream(object):
         pass
 
 
-def oop_driver(db_base_dir, connect=None, log_levels=[], log_file=None):
+def oop_driver(database_dir, connect=None, log_levels=[], log_file=None):
     """
     Starts OOP CodeIntel driver
     Args:
-        :param db_base_dir:  Directory where CodeIntel database is.
+        :param database_dir:  Directory where CodeIntel database is.
         :param connect:      Connect using a socket to this 'IP:port'. It can
                              also be an output file, for example 'stdin'
         :param log_levels:   List of logger:LEVEL, where logger can be,
@@ -61,6 +65,9 @@ def oop_driver(db_base_dir, connect=None, log_levels=[], log_file=None):
         :param log_file:     File where logs will be written. It can be 'stdout'
                              or 'stderr', for example
     """
+    # Don't redirect output
+    os.environ["KOMODO_VERBOSE"] = "1"
+
     if log_file:
         if log_file in ('stdout', 'stderr', '/dev/stdout', '/dev/stderr'):
             stream = getattr(sys, log_file)
@@ -98,21 +105,40 @@ def oop_driver(db_base_dir, connect=None, log_levels=[], log_file=None):
     except:
         log.exception("Failed to set process CPU priority")
 
-    if connect and connect not in ('-', 'stdin', '/dev/stdin'):
-        host, _, port = connect.partition(':')
-        port = int(port)
-        log.debug("connecting to: %s:%s", host, port)
-        conn = socket.create_connection((host, port))
-        fd_in = conn.makefile('rwb', 0)
-        fd_out = fd_in
-    else:
-        # force unbuffered stdout
-        fd_in = sys.stdin
-        fd_out = os.fdopen(sys.stdout.fileno(), 'wb', 0)
+    try:
+        if connect and connect not in ('-', 'stdin', '/dev/stdin'):
+            if connect.startswith('pipe:'):
+                pipe_name = connect.split(':', 1)[1]
+                log.debug("connecting to pipe: %s", pipe_name)
+                if sys.platform.startswith('win'):
+                    # using Win32 pipes
+                    from win32_named_pipe import Win32Pipe
+                    fd_out = fd_in = Win32Pipe(name=pipe_name, client=True)
+                else:
+                    # Open the write end first, so the parent doesn't hang
+                    fd_out = open(os.path.join(pipe_name, 'out'), 'wb', 0)
+                    fd_in = open(os.path.join(pipe_name, 'in'), 'rb', 0)
+                log.debug("opened: %r", fd_in)
+            else:
+                host, _, port = connect.partition(':')
+                port = int(port)
+                log.debug("connecting to: %s:%s", host, port)
+                conn = socket.create_connection((host, port))
+                fd_in = conn.makefile('r+b', 0)
+                fd_out = fd_in
+        else:
+            # force unbuffered stdout
+            fd_in = sys.stdin
+            fd_out = os.fdopen(sys.stdout.fileno(), 'wb', 0)
+    except Exception as ex:
+        log.exception("Failed to connect with client: %s", ex)
+        raise
 
-    if not os.path.exists(db_base_dir):
-        os.makedirs(db_base_dir)
-    driver = Driver(db_base_dir=db_base_dir, fd_in=fd_in, fd_out=fd_out)
+    if not os.path.exists(database_dir):
+        os.makedirs(database_dir)
+
+    from codeintel2.oop import Driver
+    driver = Driver(db_base_dir=database_dir, fd_in=fd_in, fd_out=fd_out)
     try:
         driver.start()
     except KeyboardInterrupt:
@@ -161,25 +187,48 @@ def set_process_limits(log):
         else:
             log.debug("Failed to reduce address space: %s",
                       ctypes.WinError(ctypes.get_last_error()).strerror)
+    elif sys.platform.startswith("linux"):
+        import resource
+        # Limit the oop process to 2GB of memory.
+        #
+        # Note that setting to 1GB of memory cause "bk test" failures, showing
+        # this error:
+        #   Fatal Python error: Couldn't create autoTLSkey mapping
+        GB = 1 << 30
+        resource.setrlimit(resource.RLIMIT_AS, (2 * GB, -1L))
+    else:
+        # TODO: What to do on the Mac?
+        pass
 
 
 def main():
-    def get(i, default=None):
-        try:
-            return sys.argv[i]
-        except IndexError:
-            return default
-    db_base_dir = get(1, os.path.expanduser("~/.codeintel"))
-    connect = get(2)
-    log_levels = get(3, '').split(',')
-    log_file = get(4, 'stderr')
+    parser = argparse.ArgumentParser()
+    parser.description = "CodeIntel v%s out-of-process (OOP) driver" % __version__
+    parser.add_argument("--database-dir", default=os.path.expanduser("~/.codeintel"),
+                        help="The base directory for the codeintel database.")
+    parser.add_argument("--log-level", action="append", default=[],
+                        help="<log name>:<level> Set log level")
+    parser.add_argument("--log-file", default=None,
+                        help="The name of the file to log to")
+    parser.add_argument("--connect", default=None,
+                        help="Connect over TCP instead of using stdin/stdout")
+    parser.add_argument("--import-path", action="append", default=[""],
+                        help="Paths to add to the Python import path")
+    args = parser.parse_args()
+
     oop_driver(
-        db_base_dir,
-        connect,
-        log_levels,
-        log_file,
+        database_dir=args.database_dir,
+        connect=args.connect,
+        log_levels=args.log_level,
+        log_file=args.log_file,
+        import_path=args.import_path
     )
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as ex:
+        print(ex)
+    finally:
+        print("Shutting down")

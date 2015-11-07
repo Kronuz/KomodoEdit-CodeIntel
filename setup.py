@@ -4,7 +4,8 @@ import sys
 
 from setuptools import setup, Extension
 
-VERSION = "0.2.1"
+import codeintel
+VERSION = codeintel.__version__
 
 ########################################################################
 # SilverCity (it's in PyPI, but unpatched, this one is patched)
