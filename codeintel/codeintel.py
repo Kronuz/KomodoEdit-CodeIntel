@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit cc9b5baa77d09ae87a2526073a54ad55dd3ca161
+# at commit 1097ace48e66f733c4bb368fe5ad360bf2d7bff4
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -815,8 +815,10 @@ class CodeIntelManager(threading.Thread):
         """Handle a response from the codeintel process"""
         self.log.debug("handling: %r", response)
         req_id = response.get('req_id')
-        response_command = response.get('command', '')
-        if req_id is None:
+        callback, request, sent_time = self.requests.get(req_id, (None, None, None))
+        request_command = request.get('command', '') if request else None
+        response_command = response.get('command', request_command)
+        if req_id is None or request_command != response_command:
             # unsolicited response, look for a handler
             try:
                 if not response_command:
@@ -830,17 +832,14 @@ class CodeIntelManager(threading.Thread):
             except:
                 self.log.exception("Error handling unsolicited response")
             return
-        callback, request, sent_time = self.requests.get(req_id, (None, None, None))
         if not request:
             self.log.error("Discard response for unknown request %s (command %s): have %s",
                       req_id, response_command or '%r' % response, sorted(self.requests.keys()))
             return
-        request_command = request.get('command', '')
         self.log.info("Request %s (command %s) took %0.2f seconds", req_id, request_command or '<unknown>', time.time() - sent_time)
-        # assert response.get('command', request_command) == request_command, \
-        #     "Got unexpected response command %s from request %s" % (response_command, request_command)
         if 'success' in response:
             # remove completed request
+            self.log.debug("Removing completed request %s", req_id)
             del self.requests[req_id]
         else:
             # unfinished response; update the sent time so it doesn't time out
