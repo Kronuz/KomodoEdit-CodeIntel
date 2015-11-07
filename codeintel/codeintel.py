@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit 834598444f8250f15a289c760f1087d00da79e32
+# at commit cc9b5baa77d09ae87a2526073a54ad55dd3ca161
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -932,8 +932,8 @@ class CodeIntelBuffer(object):
     def cpln_stop_chars(self):
         return self.service.languages[self.lang]['cpln_stop_chars']
 
-    def scan_document(self, handler, lines_added, file_mtime=False):
-        def callback(request, response):
+    def scan_document(self, handler, lines_added, file_mtime=False, callback=None):
+        def invoke_callback(request, response):
             if not response.get('success'):
                 msg = response.get('message')
                 if not msg:
@@ -949,6 +949,8 @@ class CodeIntelBuffer(object):
             except:
                 self.log.exception("Error calling scan_document callback")
                 pass
+            if callback is not None:
+                callback(request, response)
 
         mtime = None if file_mtime else time.time()
 
@@ -965,7 +967,7 @@ class CodeIntelBuffer(object):
             discardable=True,
             priority=PRIORITY_IMMEDIATE if lines_added else PRIORITY_CURRENT,
             mtime=mtime,
-            callback=callback,
+            callback=invoke_callback,
         )
 
     def _post_trg_from_pos_handler(self, handler, context, request, response):
