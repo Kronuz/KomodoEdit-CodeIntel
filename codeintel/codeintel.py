@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit 3bd6654c45f868a08a82d36471cf1c1f6e94ee54
+# at commit 45879fc486f3aaf6433ca398a5cb49671390a0e7
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -417,7 +417,7 @@ class CodeIntelManager(threading.Thread):
 
     def shutdown(self):
         """Abort any outstanding requests and shut down gracefully"""
-        self.abort = True
+        self.abort()
         if self.state is CodeIntelManager.STATE_DESTROYED:
             return  # already dead
         if not self.pipe:
