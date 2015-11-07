@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit 1097ace48e66f733c4bb368fe5ad360bf2d7bff4
+# at commit 0fbca1d7f3190b93b5e56a42c7db0ad60c8cfc99
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -113,10 +113,13 @@ class CodeIntel(object):
         if self._quit_application:
             return  # don't ever restart after quit-application
 
-        self._enabled = True
-
         # clean up dead managers
         with self._mgr_lock:
+            # Ensure only one activate call can happen at a time - issue 171.
+            if self._enabled:
+                return
+            self._enabled = True
+
             if self.mgr and not self.mgr.is_alive():
                 self.mgr = None
             # create a new manager as necessary
