@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit 40ccb140ac73935a63e6455ec39f2b976e33024d
+# at commit 95bdd903a7b71cee0d5fa705deb85d1a75b05501
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -357,6 +357,7 @@ class CodeIntelManager(threading.Thread):
     _send_request_thread = None  # background thread to send unsent requests
     _reset_db_as_necessary = False  # whether to reset the db if it's broken
     _watchdog_thread = None  # background thread to watch for process termination
+    _memory_error_restart_count = 0
     proc = None
     pipe = None
 
@@ -871,6 +872,15 @@ class CodeIntelManager(threading.Thread):
 
     def do_report_message(self, response):
         """Report a message from codeintel (typically, scan status) unsolicited response"""
+        if response.get('type') == 'logging':
+            message = response.get('message')
+            if message.strip().endswith("MemoryError") and "Traceback (most recent call last):" in message:
+                # Python memory error - kill the process (it will restart itself) - bug 103067.
+                if self._memory_error_restart_count < 20:
+                    self.log.fatal("Out-of-process ran out of memory - killing process")
+                    self.kill()
+                    self._memory_error_restart_count += 1
+                return
         self.service.notify_observers('status_message', response)
 
     def do_report_error(self, response):
