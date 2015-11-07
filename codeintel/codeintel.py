@@ -23,7 +23,7 @@
 # ActiveState Software Inc. All Rights Reserved.
 #
 # Mostly based in Komodo Editor's koCodeIntel.py
-# at commit 45879fc486f3aaf6433ca398a5cb49671390a0e7
+# at commit 44ddca69632adcc4b6df9aa9164f7df0c3456350
 #
 from __future__ import absolute_import, unicode_literals, print_function
 
@@ -443,6 +443,11 @@ class CodeIntelManager(threading.Thread):
         already exited.  This should *always* be called no matter how the
         process exits, in order to maintain the correct state.
         """
+        with self.service._mgr_lock:
+            if self.state == CodeIntelManager.STATE_DESTROYED:
+                return
+            # It's destroying time.
+            self.state = CodeIntelManager.STATE_DESTROYED
         try:
             self.proc.kill()
         except:
@@ -456,7 +461,6 @@ class CodeIntelManager(threading.Thread):
             self.unsent_requests.put((None, None))
         except:
             pass  # umm... no idea?
-        self.state = CodeIntelManager.STATE_DESTROYED
         self.pipe = None
         if self._shutdown_callback:
             self._shutdown_callback(self)
