@@ -52,7 +52,7 @@ class DummyStream(object):
         pass
 
 
-def oop_driver(database_dir, connect=None, log_levels=[], log_file=None):
+def oop_driver(database_dir, connect=None, log_levels=[], log_file=None, import_path=[]):
     """
     Starts OOP CodeIntel driver
     Args:
@@ -104,6 +104,12 @@ def oop_driver(database_dir, connect=None, log_levels=[], log_file=None):
         set_idle_priority(log)
     except:
         log.exception("Failed to set process CPU priority")
+
+    old_sys_path = set(os.path.abspath(os.path.join(p)) for p in sys.path)
+    for relpath in import_path:
+        import_path = os.path.abspath(os.path.join(__path__, relpath))
+        if import_path not in old_sys_path:
+            sys.path.append(import_path)
 
     try:
         if connect and connect not in ('-', 'stdin', '/dev/stdin'):
