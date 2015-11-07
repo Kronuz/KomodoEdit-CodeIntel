@@ -300,8 +300,8 @@ else:
         def get_commandline_args(self):
             import tempfile
             self._dir = tempfile.mkdtemp(prefix='codeintel-', suffix='-oop-pipes')
-            os.mkfifo(os.path.join(self._dir, 'in'), 0600)
-            os.mkfifo(os.path.join(self._dir, 'out'), 0600)
+            os.mkfifo(os.path.join(self._dir, 'in'), 0o600)
+            os.mkfifo(os.path.join(self._dir, 'out'), 0o600)
             return ['--connect', 'pipe:%s' % (self._dir,)]
 
         def get_stream(self):
