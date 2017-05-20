@@ -31,7 +31,7 @@ import os
 import sys
 import argparse
 
-__version__ = "0.9.3"
+__version__ = "0.10.0"
 
 __file__ = os.path.normpath(os.path.abspath(__file__))
 __path__ = os.path.dirname(__file__)
