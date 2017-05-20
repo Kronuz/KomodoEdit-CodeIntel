@@ -216,6 +216,7 @@ install_requires = [
     'six',
     'zope.cachedescriptors',
     'inflector',
+    'apsw',
 ]
 
 if sys.platform != 'win32':
