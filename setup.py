@@ -275,5 +275,6 @@ TemplateToolkit, PHP.""",
         'catalogs/*.cix',
         'stdlibs/*.cix',
         'golib/*.go',
+        'lib_srcs/*/*/*',
     ]},
 )
