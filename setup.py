@@ -213,9 +213,10 @@ install_requires = [
     'apsw',
 ]
 
-if sys.platform != 'win32':
-    # subprocess32 is not available for windows
-    install_requires.append('subprocess32')
+if sys.version_info[0] == 2:
+    if sys.platform != 'win32':
+        # subprocess32 is not available for windows
+        install_requires.append('subprocess32')
 
 setup(
     name="CodeIntel",
@@ -257,7 +258,7 @@ TemplateToolkit, PHP.""",
         sgmlop_ext,
     ],
     entry_points={
-        'console_scripts': ['codeintel = codeintel:main'],
+        'console_scripts': ['codeintel = codeintel.__main__:main'],
     },
     packages=[
         'codeintel',
