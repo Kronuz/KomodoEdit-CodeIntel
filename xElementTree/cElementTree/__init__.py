@@ -108,6 +108,7 @@ else:
                 else:
                     self._root = self._parser.close()
                     self._parser = None
+        next = __next__
 
         def __iter__(self):
             return self

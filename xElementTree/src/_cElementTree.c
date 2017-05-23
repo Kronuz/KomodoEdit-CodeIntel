@@ -2029,29 +2029,49 @@ static PyObject*
 element_getattro(ElementObject* self, PyObject* nameobj)
 {
     PyObject* res;
+    PyObject* pyTmp;
+    PyObject* pyName = NULL;
     char *name = "";
 
-    if (PyUnicode_Check(nameobj))
-        name = _PyUnicode_AsString(nameobj);
+    if (PyBytes_Check(nameobj)) {
+        name = PyBytes_AS_STRING(nameobj);
+    } else {
+        pyName = PyObject_Unicode(nameobj);
+        if (pyName == NULL) {
+            PyErr_Format(PyExc_TypeError, "expected string, %.200s found",
+               nameobj->ob_type->tp_name);
+            return NULL;
+        }
+        pyTmp = PyUnicode_AsUTF8String(pyName);
+        Py_XDECREF(pyName);
+        pyName = pyTmp;
+        name = PyBytes_AS_STRING(pyName);
+    }
 
-    if (name == NULL)
+    if (name == NULL) {
+    	Py_XDECREF(pyName);
         return NULL;
+    }
 
     /* handle common attributes first */
     if (strcmp(name, "tag") == 0) {
         res = self->tag;
         Py_INCREF(res);
+    	Py_XDECREF(pyName);
         return res;
     } else if (strcmp(name, "text") == 0) {
         res = element_get_text(self);
         Py_INCREF(res);
+    	Py_XDECREF(pyName);
         return res;
     }
 
     /* methods */
     res = PyObject_GenericGetAttr((PyObject*) self, nameobj);
-    if (res)
+    if (res) {
+    	Py_XDECREF(pyName);
         return res;
+    }
 
     /* less common attributes */
     if (strcmp(name, "tail") == 0) {
@@ -2076,22 +2096,42 @@ element_getattro(ElementObject* self, PyObject* nameobj)
         res = self->end;
     }
 
-    if (!res)
+    if (!res) {
+    	Py_XDECREF(pyName);
         return NULL;
+    }
 
     Py_INCREF(res);
+    Py_XDECREF(pyName);
     return res;
 }
 
 static PyObject*
 element_setattro(ElementObject* self, PyObject* nameobj, PyObject* value)
 {
+    PyObject* pyTmp;
+    PyObject* pyName = NULL;
     char *name = "";
-    if (PyUnicode_Check(nameobj))
-        name = _PyUnicode_AsString(nameobj);
 
-    if (name == NULL)
+    if (PyBytes_Check(nameobj)) {
+        name = PyBytes_AS_STRING(nameobj);
+    } else {
+        pyName = PyObject_Unicode(nameobj);
+        if (pyName == NULL) {
+            PyErr_Format(PyExc_TypeError, "expected string, %.200s found",
+               nameobj->ob_type->tp_name);
+            return NULL;
+        }
+        pyTmp = PyUnicode_AsUTF8String(pyName);
+        Py_XDECREF(pyName);
+        pyName = pyTmp;
+        name = PyBytes_AS_STRING(pyName);
+    }
+
+    if (name == NULL) {
+        Py_XDECREF(pyName);
         return NULL;
+    }
 
     if (strcmp(name, "tag") == 0) {
         Py_DECREF(self->tag);
@@ -2129,9 +2169,11 @@ element_setattro(ElementObject* self, PyObject* nameobj, PyObject* value)
         Py_INCREF(self->end);
     } else {
         PyErr_SetString(PyExc_AttributeError, name);
+        Py_XDECREF(pyName);
         return NULL;
     }
 
+    Py_XDECREF(pyName);
     return NULL;
 }
 
