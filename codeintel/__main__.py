@@ -57,13 +57,29 @@ class BinaryStream(object):
     def __init__(self, stream):
         self.stream = stream
 
-    def write(self, message):
+    def encode(self, message):
         if isinstance(message, six.text_type):
             message = message.encode('utf-8')
-        return self.stream.write(message)
+        return message
+
+    def write(self, message):
+        message = self.encode(message)
+        written = self.stream.write(message)
+        self.stream.flush()
+        return written
+
+    def flush(self):
+        self.stream.flush()
 
     def __getattr__(self, name):
         return getattr(self.stream, name)
+
+
+class TextStream(BinaryStream):
+    def encode(self, message):
+        if isinstance(message, six.binary_type):
+            message = message.decode('utf-8')
+        return message
 
 
 def oop_driver(database_dir, connect=None, log_levels=[], log_file=None, import_path=[]):
@@ -83,19 +99,23 @@ def oop_driver(database_dir, connect=None, log_levels=[], log_file=None, import_
     os.environ["KOMODO_VERBOSE"] = "1"
 
     if log_file:
-        if log_file in ('stdout', 'stderr', '/dev/stdout', '/dev/stderr'):
-            stream = getattr(sys, log_file)
+        if log_file in ('stdout', '/dev/stdout'):
+            stream = sys.stdout
+        elif log_file in ('stderr', '/dev/stderr'):
+            stream = sys.stderr
         else:
             log_dir = os.path.dirname(log_file)
             if not os.path.exists(log_dir):
                 os.makedirs(log_dir)
-            stream = open(log_file, 'wb', 0)
-        logging.basicConfig(stream=BinaryStream(stream))
+            stream = open(log_file, 'wt')
+        logging.basicConfig(stream=TextStream(stream))
         # XXX marky horrible ugly hack
         sys.stderr = stream
         sys.stdout = stream
     else:
         logging.basicConfig(stream=DummyStream())
+
+    logging.getLogger('codeintel.oop.driver').setLevel(logging.INFO)
 
     for log_level in log_levels:
         name, _, level = log_level.rpartition(':')
