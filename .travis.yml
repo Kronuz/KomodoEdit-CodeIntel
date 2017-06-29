@@ -7,8 +7,8 @@ language: python
 cache:
   - pip
   - directories:
-    - "$HOME/.cache/pip"
-    - "${PYENV_CACHE_PATH:-$HOME/.pyenv_cache}"
+    - $HOME/.cache/pip
+    - ${PYENV_CACHE_PATH:-$HOME/.pyenv_cache}
 
 env:
   global:
@@ -17,115 +17,182 @@ env:
 
 matrix:
   include:
-    - sudo: required
-      services:
-        - docker
-      env: DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64
-
-    - sudo: required
-      services:
-        - docker
-      env: DOCKER_IMAGE=quay.io/pypa/manylinux1_i686
-           DOCKER_PRE_CMD=linux32
-
-    - os: linux
-      dist: trusty
-      python: '2.6'
+    # Sources
     - os: linux
       dist: trusty
       python: '2.7'
-    - os: linux
-      dist: trusty
-      python: '3.3'
-    - os: linux
-      dist: trusty
-      python: '3.4'
-    - os: linux
-      dist: trusty
-      python: '3.5'
-    - os: linux
-      dist: trusty
-      python: '3.6'
-    # - os: linux
-    #   dist: trusty
-    #   python: pypy
+      env: SETUP_BUILD='sdist'
+
+    # Manylinux binaries
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_i686'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=27'
+           DOCKER_PRE_CMD='linux32'
+
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_i686'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=26'
+           DOCKER_PRE_CMD='linux32'
+
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_i686'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=36'
+           DOCKER_PRE_CMD='linux32'
+
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_i686'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=35'
+           DOCKER_PRE_CMD='linux32'
+
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_i686'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=34'
+           DOCKER_PRE_CMD='linux32'
+
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_i686'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=33'
+           DOCKER_PRE_CMD='linux32'
+
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_x86_64'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=27'
+
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_x86_64'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=26'
+
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_x86_64'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=36'
+
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_x86_64'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=35'
+
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_x86_64'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=34'
+
+    - sudo: required
+      services:
+        - docker
+      env: DOCKER_IMAGE='quay.io/pypa/manylinux1_x86_64'
+           DOCKER_OPTIONS='-e PYTHON_VERSION=33'
+
+    # OS X binaries
+    - os: osx
+      osx_image: xcode8.3  # OS X 10.12
+      language: objective-c
+      env: PYENV_VERSION='2.7.13' PYENV_VERSION_STRING='Python 2.7.13'
+    - os: osx
+      osx_image: xcode7.3  # OS X 10.11
+      language: objective-c
+      env: PYENV_VERSION='2.7.13' PYENV_VERSION_STRING='Python 2.7.13'
+    - os: osx
+      osx_image: xcode6.4  # OS X 10.10
+      language: objective-c
+      env: PYENV_VERSION='2.7.13' PYENV_VERSION_STRING='Python 2.7.13'
 
     - os: osx
       osx_image: xcode8.3  # OS X 10.12
       language: objective-c
-      env: PYENV_VERSION=2.7.13 PYENV_VERSION_STRING='Python 2.7.13'
+      env: PYENV_VERSION='2.6.9' PYENV_VERSION_STRING='Python 2.6.9'
     - os: osx
       osx_image: xcode7.3  # OS X 10.11
       language: objective-c
-      env: PYENV_VERSION=2.7.13 PYENV_VERSION_STRING='Python 2.7.13'
-    # - os: osx
-    #   osx_image: xcode6.4  # OS X 10.10
-    #   language: objective-c
-    #   env: PYENV_VERSION=2.7.13 PYENV_VERSION_STRING='Python 2.7.13'
+      env: PYENV_VERSION='2.6.9' PYENV_VERSION_STRING='Python 2.6.9'
+    - os: osx
+      osx_image: xcode6.4  # OS X 10.10
+      language: objective-c
+      env: PYENV_VERSION='2.6.9' PYENV_VERSION_STRING='Python 2.6.9'
 
     - os: osx
       osx_image: xcode8.3  # OS X 10.12
       language: objective-c
-      env: PYENV_VERSION=3.3.5 PYENV_VERSION_STRING='Python 3.3.5'
+      env: PYENV_VERSION='3.6.0' PYENV_VERSION_STRING='Python 3.6.0'
     - os: osx
       osx_image: xcode7.3  # OS X 10.11
       language: objective-c
-      env: PYENV_VERSION=3.3.5 PYENV_VERSION_STRING='Python 3.3.5'
-    # - os: osx
-    #   osx_image: xcode6.4  # OS X 10.10
-    #   language: objective-c
-    #   env: PYENV_VERSION=3.3.5 PYENV_VERSION_STRING='Python 3.3.5'
+      env: PYENV_VERSION='3.6.0' PYENV_VERSION_STRING='Python 3.6.0'
+    - os: osx
+      osx_image: xcode6.4  # OS X 10.10
+      language: objective-c
+      env: PYENV_VERSION='3.6.0' PYENV_VERSION_STRING='Python 3.6.0'
 
     - os: osx
       osx_image: xcode8.3  # OS X 10.12
       language: objective-c
-      env: PYENV_VERSION=3.4.6 PYENV_VERSION_STRING='Python 3.4.6'
+      env: PYENV_VERSION='3.5.2' PYENV_VERSION_STRING='Python 3.5.2'
     - os: osx
       osx_image: xcode7.3  # OS X 10.11
       language: objective-c
-      env: PYENV_VERSION=3.4.6 PYENV_VERSION_STRING='Python 3.4.6'
-    # - os: osx
-    #   osx_image: xcode6.4  # OS X 10.10
-    #   language: objective-c
-    #   env: PYENV_VERSION=3.4.6 PYENV_VERSION_STRING='Python 3.4.6'
+      env: PYENV_VERSION='3.5.2' PYENV_VERSION_STRING='Python 3.5.2'
+    - os: osx
+      osx_image: xcode6.4  # OS X 10.10
+      language: objective-c
+      env: PYENV_VERSION='3.5.2' PYENV_VERSION_STRING='Python 3.5.2'
 
     - os: osx
       osx_image: xcode8.3  # OS X 10.12
       language: objective-c
-      env: PYENV_VERSION=3.5.3 PYENV_VERSION_STRING='Python 3.5.3'
+      env: PYENV_VERSION='3.4.5' PYENV_VERSION_STRING='Python 3.4.5'
     - os: osx
       osx_image: xcode7.3  # OS X 10.11
       language: objective-c
-      env: PYENV_VERSION=3.5.3 PYENV_VERSION_STRING='Python 3.5.3'
-    # - os: osx
-    #   osx_image: xcode6.4  # OS X 10.10
-    #   language: objective-c
-    #   env: PYENV_VERSION=3.5.3 PYENV_VERSION_STRING='Python 3.5.3'
+      env: PYENV_VERSION='3.4.5' PYENV_VERSION_STRING='Python 3.4.5'
+    - os: osx
+      osx_image: xcode6.4  # OS X 10.10
+      language: objective-c
+      env: PYENV_VERSION='3.4.5' PYENV_VERSION_STRING='Python 3.4.5'
 
     - os: osx
       osx_image: xcode8.3  # OS X 10.12
       language: objective-c
-      env: PYENV_VERSION=3.6.1 PYENV_VERSION_STRING='Python 3.6.1'
+      env: PYENV_VERSION='3.3.6' PYENV_VERSION_STRING='Python 3.3.6'
     - os: osx
       osx_image: xcode7.3  # OS X 10.11
       language: objective-c
-      env: PYENV_VERSION=3.6.1 PYENV_VERSION_STRING='Python 3.6.1'
-    # - os: osx
-    #   osx_image: xcode6.4  # OS X 10.10
-    #   language: objective-c
-    #   env: PYENV_VERSION=3.6.1 PYENV_VERSION_STRING='Python 3.6.1'
+      env: PYENV_VERSION='3.3.6' PYENV_VERSION_STRING='Python 3.3.6'
+    - os: osx
+      osx_image: xcode6.4  # OS X 10.10
+      language: objective-c
+      env: PYENV_VERSION='3.3.6' PYENV_VERSION_STRING='Python 3.3.6'
+
 
 before_install:
-  - if [[ "$DOCKER_IMAGE" == "" ]]; then source "${SETUP_SCRIPT:-.travis/setup-pyenv.sh}"; fi
+  - if [[ "$DOCKER_IMAGE" == "" ]]; then source "${SETUP_SCRIPT:-.travis/pyenv-setup.sh}"; fi
   - python --version
 
 install:
   - if [[ "$DOCKER_IMAGE" != "" ]]; then docker pull ${DOCKER_IMAGE}; fi
 
 script:
-  - if [[ "$DOCKER_IMAGE" != "" ]]; then docker run --rm -v `pwd`:/io ${DOCKER_IMAGE} ${DOCKER_PRE_CMD} /io/.travis/manylinux-build.sh; fi
-  - if [[ "$DOCKER_IMAGE" == "" ]]; then pip install wheel && python setup.py bdist_wheel; fi
+  - if [[ "$DOCKER_IMAGE" != "" ]]; then docker run --rm -v `pwd`:/io ${DOCKER_OPTIONS} ${DOCKER_IMAGE} ${DOCKER_PRE_CMD} /io/.travis/manylinux-build.sh; fi
+  - if [[ "$DOCKER_IMAGE" == "" ]]; then pip install wheel && python setup.py ${SETUP_BUILD:-bdist_wheel}; fi
 
 after_success:
   - ls -la dist/
-  - if [[ "$TRAVIS_TAG" != "" ]]; then pip install twine && for file in dist/*; do python -m twine upload -u Kronuz -p ${PYPIPASSWORD} "${file}"; done; fi
+  - if [[ "$TRAVIS_TAG" != "" ]]; then pip install twine && for file in dist/*; do twine upload -u Kronuz -p ${PYPIPASSWORD} "${file}"; done; fi
