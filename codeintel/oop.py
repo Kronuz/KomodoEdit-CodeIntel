@@ -161,8 +161,8 @@ def oop_driver(database_dir, connect=None, log_levels=[], log_file=None, import_
                 port = int(port)
                 log.debug("connecting to: %s:%s", host, port)
                 conn = socket.create_connection((host, port))
-                fd_in = conn.makefile('r+b', 0)
-                fd_out = fd_in
+                fd_in = conn.makefile('rb', 0)
+                fd_out = conn.makefile('wb', 0)
         else:
             # force unbuffered stdout
             fd_in = sys.stdin
