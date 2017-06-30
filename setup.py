@@ -222,6 +222,16 @@ if sys.version_info[0] == 2:
 else:
     install_requires.append('libclang-py3')
 
+
+def package_files(directory):
+    paths = []
+    if os.path.isdir(directory):
+        for path, directories, filenames in os.walk(directory):
+            for filename in filenames:
+                paths.append(os.path.join('..', path, filename))
+    return paths
+
+
 setup(
     name="CodeIntel",
     version=VERSION,
@@ -265,7 +275,11 @@ TemplateToolkit, PHP.""",
         sgmlop_ext,
     ],
     entry_points={
-        'console_scripts': ['codeintel = codeintel.__main__:main'],
+        'console_scripts': [
+            'codeintel = codeintel.__main__:main',
+            'ci2 = codeintel.ci2:main',
+            'cipref = codeintel.cipref:main',
+        ],
     },
     packages=[
         'codeintel',
@@ -276,14 +290,18 @@ TemplateToolkit, PHP.""",
         'codeintel.SilverCity',
         'codeintel.cElementTree',
         'codeintel.ciElementTree',
+        'codeintel.test2',
     ],
     package_data={
-        'codeintel.codeintel2': [
-            'lexers/*.lexres',
-            'catalogs/*.cix',
-            'stdlibs/*.cix',
-            'golib/*.go',
-            'lib_srcs/*/*/*',
+        '': [
+            'codeintel/codeintel2/lexers/*.lexres',
+            'codeintel/codeintel2/catalogs/*.cix',
+            'codeintel/codeintel2/stdlibs/*.cix',
+            package_files('codeintel/codeintel2/golib'),
+            package_files('codeintel/codeintel2/lib_srcs'),
+            package_files('codeintel/test2/scan_inputs'),
+            package_files('codeintel/test2/scan_outputs'),
+            package_files('codeintel/test2/bits'),
         ],
     },
 )

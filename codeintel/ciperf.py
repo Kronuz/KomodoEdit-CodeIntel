@@ -1,0 +1,1 @@
+../../src/codeintel/bin/ciperf.py
