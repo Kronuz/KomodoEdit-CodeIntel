@@ -209,7 +209,9 @@ cielementtree_ext = Extension(
 
 install_requires = [
     'apsw',
+    'applib',
     'chardet',
+    'cmdln',
     'inflector',
     'six',
     'zope.cachedescriptors',
