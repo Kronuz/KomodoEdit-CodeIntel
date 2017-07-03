@@ -310,7 +310,8 @@ TemplateToolkit, PHP, C/C++, Objective-C.""",
             package_files('codeintel/codeintel2/lib_srcs') +
             package_files('codeintel/test2/scan_inputs') +
             package_files('codeintel/test2/scan_outputs') +
-            package_files('codeintel/test2/bits')
+            package_files('codeintel/test2/bits') +
+            package_files('codeintel/catalogs')
         )
     },
 )
