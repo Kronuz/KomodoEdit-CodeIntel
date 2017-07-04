@@ -686,6 +686,8 @@ class CodeIntelManager(threading.Thread):
                 update("Failed to get available catalogs:", response)
         self.update_catalogs(update_callback=update_callback)
 
+        self.send(command="set-xml-catalogs")
+
     def set_global_environment(self, env, prefs):
         self.env = env
         self.prefs = [prefs] if isinstance(prefs, dict) else prefs
