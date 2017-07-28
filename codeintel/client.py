@@ -52,7 +52,7 @@ PRIORITY_BACKGROUND = 4     # info may be needed sometime
 
 logger_name = 'CodeIntel.codeintel'
 
-# logging.getLogger(logger_name).setLevel(logging.DEBUG)
+logging.getLogger(logger_name).setLevel(logging.INFO)
 
 
 class CodeIntel(object):
@@ -569,6 +569,7 @@ class CodeIntelManager(threading.Thread):
             try:
                 self.pipe = conn.get_stream()
                 self._cmd_messge = True
+                self.log.info("Successfully connected with CodeIntel!")
             except Exception:
                 self.pipe = None
 
@@ -916,7 +917,7 @@ class CodeIntelManager(threading.Thread):
             self.log.error("Discard response for unknown request %s (command %s): have %s",
                       req_id, response_command or '%r' % response, sorted(self.requests.keys()))
             return
-        self.log.info("Request %s (command %s) took %0.2f seconds", req_id, request_command or '<unknown>', time.time() - sent_time)
+        self.log.debug("Request %s (command %s) took %0.2f seconds", req_id, request_command or '<unknown>', time.time() - sent_time)
         if 'success' in response:
             # remove completed request
             self.log.debug("Removing completed request %s", req_id)
