@@ -727,11 +727,12 @@ class CodeIntelManager(threading.Thread):
 
         def initialization_completed():
             self.log.debug("internal initial requests completed")
-            self._send_request_thread = threading.Thread(
-                target=self._send_queued_requests,
-                name="CodeIntel Manager Request Sending Thread")
-            self._send_request_thread.daemon = True
-            self._send_request_thread.start()
+            if not self._send_request_thread:
+                self._send_request_thread = threading.Thread(
+                    target=self._send_queued_requests,
+                    name="CodeIntel Manager Request Sending Thread")
+                self._send_request_thread.daemon = True
+                self._send_request_thread.start()
             update("Codeintel ready.", state=CodeIntelManager.STATE_READY)
 
         self._send(callback=get_cpln_langs, command='get-languages', type='cpln')
