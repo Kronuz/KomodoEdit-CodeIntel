@@ -284,8 +284,6 @@ TemplateToolkit, PHP, C/C++, Objective-C.""",
     entry_points={
         'console_scripts': [
             'codeintel = codeintel.__main__:main',
-            'ci2 = codeintel.ci2:main',
-            'cipref = codeintel.cipref:main',
         ],
     },
     packages=[
