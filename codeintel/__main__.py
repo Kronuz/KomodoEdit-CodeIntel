@@ -25,7 +25,7 @@
 # Mostly based in Komodo Editor's oop-driver.py and ci2.py
 # at commit 40ccb140ac73935a63e6455ec39f2b976e33024d
 #
-from __future__ import unicode_literals, print_function
+from __future__ import absolute_import, unicode_literals, print_function
 
 import os
 import sys
@@ -43,7 +43,7 @@ import socket
 import six
 import cmdln
 
-from codeintel import __version__
+from __init__ import __version__
 
 
 class DummyStream(object):
@@ -242,7 +242,7 @@ class Shell(cmdln.Cmdln):
         ${cmd_usage}
         ${cmd_option_list}
         """
-        from codeintel.codeintel2.oop import Driver
+        from codeintel2.oop import Driver
 
         old_sys_path = set(os.path.abspath(os.path.join(p)) for p in sys.path)
         for relpath in opts.import_path:
@@ -375,7 +375,7 @@ class Shell(cmdln.Cmdln):
         """
         import pprint
         import cPickle as pickle
-        from codeintel.ci2 import _paths_from_path_patterns
+        from ci2 import _paths_from_path_patterns
 
         for path in _paths_from_path_patterns(path_patterns):
             fin = open(path, 'rb')
@@ -401,7 +401,7 @@ class Shell(cmdln.Cmdln):
         Any errors will be printed. Returns the number of errors (i.e.
         exit value is 0 if there are no consistency problems).
         """
-        from codeintel.codeintel2.manager import Manager
+        from codeintel2.manager import Manager
 
         mgr = Manager(opts.db_base_dir)
         try:
@@ -435,9 +435,9 @@ class Shell(cmdln.Cmdln):
         ${cmd_option_list}
         """
         import re
-        from codeintel.ci2 import _outline_ci_elem
-        from codeintel.codeintel2.manager import Manager
-        from codeintel.codeintel2.util import tree_from_cix
+        from ci2 import _outline_ci_elem
+        from codeintel2.manager import Manager
+        from codeintel2.util import tree_from_cix
 
         mgr = Manager()
         mgr.upgrade()
@@ -522,8 +522,8 @@ class Shell(cmdln.Cmdln):
 
         Returns the number of warnings/errors generated.
         """
-        from codeintel.codeintel2.util import tree_from_cix, check_tree
-        from codeintel.ci2 import _paths_from_path_patterns
+        from codeintel2.util import tree_from_cix, check_tree
+        from ci2 import _paths_from_path_patterns
 
         num_results = 0
         for path in _paths_from_path_patterns(path_patterns):
@@ -553,9 +553,9 @@ class Shell(cmdln.Cmdln):
         ${cmd_option_list}
         """
         import ciElementTree as ET
-        from codeintel.codeintel2.util import tree_from_cix
-        from codeintel.codeintel2.tree import pretty_tree_from_tree
-        from codeintel.ci2 import _paths_from_path_patterns
+        from codeintel2.util import tree_from_cix
+        from codeintel2.tree import pretty_tree_from_tree
+        from ci2 import _paths_from_path_patterns
 
         if opts.pretty_print:
             opts.convert = True
@@ -601,12 +601,12 @@ class Shell(cmdln.Cmdln):
         """
         import time
         import ciElementTree as ET
-        from codeintel.ci2 import _paths_from_path_patterns
-        from codeintel.codeintel2.manager import Manager
-        from codeintel.codeintel2.citadel import CitadelBuffer
-        from codeintel.codeintel2.common import CodeIntelError
-        from codeintel.codeintel2.tree import pretty_tree_from_tree
-        from codeintel.codeintel2.util import guess_lang_from_path
+        from ci2 import _paths_from_path_patterns
+        from codeintel2.manager import Manager
+        from codeintel2.citadel import CitadelBuffer
+        from codeintel2.common import CodeIntelError
+        from codeintel2.tree import pretty_tree_from_tree
+        from codeintel2.util import guess_lang_from_path
 
         mgr = Manager()
         mgr.upgrade()
@@ -728,9 +728,9 @@ class Shell(cmdln.Cmdln):
         The output includes trigger info and other stats. I.e. this is
         primarily a debugging tool.
         """
-        from codeintel.codeintel2.manager import Manager
-        from codeintel.codeintel2.common import Error
-        from codeintel.ci2 import _url_from_local_path
+        from codeintel2.manager import Manager
+        from codeintel2.common import Error
+        from ci2 import _url_from_local_path
 
         mgr = Manager()
         try:
@@ -823,9 +823,9 @@ class Shell(cmdln.Cmdln):
         """
         import json
         from collections import defaultdict
-        from codeintel.codeintel2.manager import Manager
-        from codeintel.codeintel2.util import tree_from_cix
-        from codeintel.codeintel2.common import Error
+        from codeintel2.manager import Manager
+        from codeintel2.util import tree_from_cix
+        from codeintel2.common import Error
 
         if opts.output == '-':
             output_path = None
@@ -892,11 +892,11 @@ class Shell(cmdln.Cmdln):
         import pprint
         import random
         import ciElementTree as ET
-        from codeintel.codeintel2.manager import Manager
-        from codeintel.codeintel2.tree import pretty_tree_from_tree
-        from codeintel.codeintel2.common import LogEvalController, Error
-        from codeintel.codeintel2.util import tree_from_cix, dedent, unmark_text, banner
-        from codeintel.ci2 import _escaped_text_from_text
+        from codeintel2.manager import Manager
+        from codeintel2.tree import pretty_tree_from_tree
+        from codeintel2.common import LogEvalController, Error
+        from codeintel2.util import tree_from_cix, dedent, unmark_text, banner
+        from ci2 import _escaped_text_from_text
 
         if False:
             lang = "CSS"
