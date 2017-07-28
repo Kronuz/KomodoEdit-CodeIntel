@@ -96,6 +96,7 @@ class Shell(cmdln.Cmdln):
         logging.basicConfig(stream=TextStream(sys.stderr))
 
         self.verbosity = 0
+        self.traceback = False
         self.log = logging.getLogger('codeintel.oop')
 
         try:
@@ -161,7 +162,7 @@ class Shell(cmdln.Cmdln):
             # TODO: What to do on the Mac?
             pass
 
-    def set_logger_level(self, option, opt_str, value, parser):
+    def set_log_level(self, option, opt_str, value, parser):
         # Optarg is of the form '<logname>:<levelname>', e.g.
         # "codeintel:DEBUG", "codeintel.db:INFO".
         name, _, level = value.rpartition(':')
@@ -174,6 +175,9 @@ class Shell(cmdln.Cmdln):
     def set_profiling(self, option, opt_str, value, parser):
         self.profiling = True
 
+    def set_traceback(self, option, opt_str, value, parser):
+        self.traceback = True
+
     def set_verbosity(self, option, opt_str, value, parser):
         self.verbosity += 1
         if self.verbosity == 1:
@@ -183,7 +187,7 @@ class Shell(cmdln.Cmdln):
             self.log.setLevel(logging.DEBUG)
             logging.getLogger('codeintel').setLevel(logging.DEBUG)
 
-    def set_logger_file(self, option, opt_str, value, parser):
+    def set_log_file(self, option, opt_str, value, parser):
         if value in ('stdout', '/dev/stdout'):
             stream = sys.stdout
         elif value in ('stderr', '/dev/stderr'):
@@ -203,16 +207,18 @@ class Shell(cmdln.Cmdln):
         optparser.add_option("-v", "--verbose",
             action="callback", callback=self.set_verbosity,
             help="More verbose output. Repeat for more and more output.")
+        optparser.add_option("--log-file",
+            action="callback", callback=self.set_log_file, nargs=1, type="str",
+            help="The name of the file to log to")
         optparser.add_option("-L", "--log-level",
-            action="callback", callback=self.set_logger_level, nargs=1, type="str",
+            action="callback", callback=self.set_log_level, nargs=1, type="str",
             help="Specify a logger level via '<log name>:<level>'")
         optparser.add_option("-p", "--profile",
             action="callback", callback=self.set_profiling,
             help="Enable code profiling, prints out a method summary.")
-        optparser.add_option("--log-file",
-            action="callback", callback=self.set_logger_file,
-            help="The name of the file to log to")
-
+        optparser.add_option("--traceback",
+            action="callback", callback=self.set_traceback,
+            help="Show full traceback on error.")
         return optparser
 
     #   ___   ___  _ __
@@ -1015,7 +1021,7 @@ def main():
         else:  # string exception
             shell.log.error(exc_info[0])
         if not skip_it:
-            if shell.log.isEnabledFor(logging.DEBUG):
+            if shell.log.isEnabledFor(logging.DEBUG) or shell.traceback:
                 print()
                 traceback.print_exception(*exc_info)
             sys.exit(1)

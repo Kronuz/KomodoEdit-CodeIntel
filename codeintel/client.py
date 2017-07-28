@@ -370,7 +370,7 @@ else:
         def close(self):
             try:
                 self.cleanup()
-            except:
+            except Exception as e:
                 pass
             self._read.close()
             self._write.close()
@@ -393,6 +393,7 @@ class CodeIntelManager(threading.Thread):
     _reset_db_as_necessary = False  # whether to reset the db if it's broken
     _watchdog_thread = None  # background thread to watch for process termination
     _memory_error_restart_count = 0
+    _cmd_messge = True
     proc = None
     pipe = None
 
@@ -488,7 +489,7 @@ class CodeIntelManager(threading.Thread):
     def close(self):
         try:
             self.pipe.close()
-        except:
+        except Exception as e:
             pass  # The other end is dead, this is kinda pointless
         self.pipe = None
 
@@ -505,13 +506,13 @@ class CodeIntelManager(threading.Thread):
             self.state = CodeIntelManager.STATE_DESTROYED
         try:
             self.proc.kill()
-        except:
+        except Exception as e:
             pass
         self.close()
         try:
             # Shut down the request sending thread (self._send_request_thread)
             self.unsent_requests.put((None, None))
-        except:
+        except Exception as e:
             pass  # umm... no idea?
         if self._shutdown_callback:
             self._shutdown_callback(self)
@@ -549,7 +550,9 @@ class CodeIntelManager(threading.Thread):
             cmd += conn.get_commandline_args()
 
             if _oop_mode == 'server':
-                self.log.warn("Please start OOP server with command: %s", " ".join(cmd))
+                if self._cmd_messge:
+                    self._cmd_messge = False
+                    self.log.warn("Please start OOP server with command: %s", " ".join(cmd))
                 self.proc = True
             else:
                 self.log.debug("Running OOP: %s", " ".join(cmd))
@@ -565,6 +568,7 @@ class CodeIntelManager(threading.Thread):
 
             try:
                 self.pipe = conn.get_stream()
+                self._cmd_messge = True
             except Exception:
                 self.pipe = None
 
@@ -574,7 +578,7 @@ class CodeIntelManager(threading.Thread):
         except Exception as e:
             self.kill()
             message = "Error initing child: %s" % e
-            self.log.error(message, exc_info=True)
+            self.log.error(message)
             self._progress_callback(self, message)
         else:
             self._send_init_requests()
@@ -756,9 +760,8 @@ class CodeIntelManager(threading.Thread):
         def get_available_catalogs(request, response):
             if response.get("success", False):
                 self.available_catalogs = response.get('catalogs', [])
-            update_callback(response)
-        if not update_callback:
-            update_callback = lambda *args, **kwargs: None
+            if update_callback:
+                update_callback(response)
         self._send(callback=get_available_catalogs, command='get-available-catalogs')
 
     def send(self, callback=None, **kwargs):
@@ -815,7 +818,7 @@ class CodeIntelManager(threading.Thread):
             self.pipe.write(buf)
         except Exception as e:
             message = "Error writing data to codeintel: %s" % e
-            self.log.error(message, exc_info=True)
+            self.log.error(message)
             self._progress_callback(self, message)
             self.close()
 
@@ -868,8 +871,8 @@ class CodeIntelManager(threading.Thread):
                                 try:
                                     if callback:
                                         callback(request, {})
-                                except:
-                                    self.log.exception("Failed timing out request")
+                                except Exception as e:
+                                    self.log.error("Failed timing out request")
                                 else:
                                     self.log.debug("Discarding request %r", request)
                                 del self.requests[req_id]
@@ -879,7 +882,7 @@ class CodeIntelManager(threading.Thread):
                     self.log.debug("IOError in codeintel during shutdown; ignoring")
                     break  # this is intentional
                 message = "Error reading data from codeintel: %s" % e
-                self.log.error(message, exc_info=True)
+                self.log.error(message)
                 self._progress_callback(self, message)
                 self.close()
 
@@ -906,8 +909,8 @@ class CodeIntelManager(threading.Thread):
                     self.log.error("Unknown command %r, response %r", response_command, response)
                     raise ValueError("Unknown unsolicited response \"%s\"" % response_command)
                 meth(response)
-            except:
-                self.log.exception("Error handling unsolicited response")
+            except Exception as e:
+                self.log.error("Error handling unsolicited response")
             return
         if not request:
             self.log.error("Discard response for unknown request %s (command %s): have %s",
@@ -1016,14 +1019,14 @@ class CodeIntelBuffer(object):
                     msg = "scan_document: Can't scan document"
                 try:
                     handler.set_status_message(self, msg)
-                except:
-                    self.log.exception("Error reporting scan_document error: %s", response.get('message', "<error not available>"))
+                except Exception as e:
+                    self.log.error("Error reporting scan_document error: %s", response.get('message', e))
                     pass
                 return
             try:
                 handler.on_document_scanned(self)
-            except:
-                self.log.exception("Error calling scan_document callback")
+            except Exception as e:
+                self.log.error("Error calling scan_document callback: %s", e)
                 pass
             if callback is not None:
                 callback(request, response)
@@ -1054,8 +1057,8 @@ class CodeIntelBuffer(object):
                 msg = "%s: Can't get a trigger for position %s" % (context, request.get("pos", "<unknown position>"))
             try:
                 handler.set_status_message(self, msg)
-            except:
-                self.log.exception("Error reporting scan_document error: %s", response.get('message', "<error not available>"))
+            except Exception as e:
+                self.log.error("Error reporting scan_document error: %s", response.get('message', e))
                 pass
             return
         else:
@@ -1063,8 +1066,8 @@ class CodeIntelBuffer(object):
         try:
             if trg:
                 handler.on_trg_from_pos(self, context, trg)
-        except:
-            self.log.exception("Error calling %s callback", context)
+        except Exception as e:
+            self.log.error("Error calling %s callback: %s", context, e)
             pass
 
     def trg_from_pos(self, handler, implicit, pos=None):
@@ -1121,8 +1124,8 @@ class CodeIntelBuffer(object):
                 if not response.get('success'):
                     try:
                         handler.set_status_message(self, response.get('message', ""), response.get('highlight', False))
-                    except:
-                        self.log.exception("Error reporting async_eval_at_trg error: %s", response.get("message", "<error not available>"))
+                    except Exception as e:
+                        self.log.error("Error reporting async_eval_at_trg error: %s", response.get("message", e))
                         pass
                     return
 
@@ -1134,14 +1137,14 @@ class CodeIntelBuffer(object):
                     cplns = response['cplns']
                     try:
                         handler.set_auto_complete_info(self, cplns, trg)
-                    except:
-                        self.log.exception("Error calling set_auto_complete_info")
+                    except Exception as e:
+                        self.log.error("Error calling set_auto_complete_info: %s", e)
                         pass
                 elif 'calltip' in response:
                     try:
                         handler.set_call_tip_info(self, response['calltip'], request.get('explicit', False), trg)
-                    except Exception:
-                        self.log.exception("Error calling set_call_tip_info")
+                    except Exception as e:
+                        self.log.error("Error calling set_call_tip_info: e", e)
                         pass
                 elif 'defns' in response:
                     handler.set_definitions_info(self, response['defns'], trg)
@@ -1165,8 +1168,8 @@ class CodeIntelBuffer(object):
                 else:
                     RESULT_ERROR = False
                     callback(RESULT_ERROR, None)
-            except:
-                self.log.exception("Error calling to_html callback")
+            except Exception as e:
+                self.log.error("Error calling to_html callback: %s", e)
 
         flag_dict = {
             'include_styling': True,
@@ -1199,16 +1202,16 @@ class CodeIntelBuffer(object):
                     msg = "get_calltip_arg_range: Can't get a calltip at position %d" % curr_pos
                 try:
                     handler.set_status_message(self, msg)
-                except:
-                    self.log.exception("Error reporting get_calltip_arg_range error: %s", response.get('message', "<error not available>"))
+                except Exception as e:
+                    self.log.error("Error reporting get_calltip_arg_range error: %s", response.get('message', e))
                     pass
                 return
             start = response.get('start', -1)
             end = response.get('end', -1)
             try:
                 handler.on_get_calltip_range(self, start, end)
-            except:
-                self.log.exception("Error calling get_calltip_arg_range callback")
+            except Exception as e:
+                self.log.error("Error calling get_calltip_arg_range callback: %s", e)
                 pass
 
         self.service.send(
