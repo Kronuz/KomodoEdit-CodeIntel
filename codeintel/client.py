@@ -105,7 +105,7 @@ class CodeIntel(object):
             if self.mgr is mgr:
                 self.mgr = None
 
-    def activate(self, reset_db_as_necessary=False, oop_command=None, oop_mode=None, log_levels=None, env=None, prefs=None):
+    def activate(self, reset_db_as_necessary=False, codeintel_command=None, oop_mode=None, log_levels=None, env=None, prefs=None):
         self.log.debug("activating codeintel service")
 
         if self._quit_application:
@@ -121,7 +121,7 @@ class CodeIntel(object):
                     self,
                     progress_callback=self._on_mgr_progress,
                     shutdown_callback=self._on_mgr_shutdown,
-                    oop_command=oop_command,
+                    codeintel_command=codeintel_command,
                     oop_mode=oop_mode,
                     log_levels=log_levels,
                     env=env,
@@ -261,7 +261,7 @@ class _TCPConnection(_Connection):
         self.sock.listen(0)
 
     def get_commandline_args(self):
-        return ['--connect', 'tcp:%s:%s' % self.sock.getsockname()]
+        return ['--tcp', '%s:%s' % self.sock.getsockname()]
 
     def get_stream(self):
         conn = self.sock.accept()
@@ -292,7 +292,7 @@ class _ServerConnection(_Connection):
         self.port = port
 
     def get_commandline_args(self):
-        return ['--connect', 'server:%s:%s' % (self.host, self.port)]
+        return ['--server', '%s:%s' % (self.host, self.port)]
 
     def get_stream(self):
         conn = socket.create_connection((self.host, self.port))
@@ -321,7 +321,7 @@ if sys.platform.startswith("win"):
         pipe_prefix = "codeintel-"
 
         def get_commandline_args(self):
-            return ['--connect', 'pipe:%s' % (self.name,)]
+            return ['--pipe', self.name]
 
         def get_stream(self):
             self._ensure_stream()
@@ -342,7 +342,7 @@ else:
             self._dir = tempfile.mkdtemp(prefix='codeintel-', suffix='-oop-pipes')
             os.mkfifo(os.path.join(self._dir, 'in'), 0o600)
             os.mkfifo(os.path.join(self._dir, 'out'), 0o600)
-            return ['--connect', 'pipe:%s' % (self._dir,)]
+            return ['--pipe', self._dir]
 
         def get_stream(self):
             # Open the write end first, so that the child doesn't hang
@@ -385,7 +385,7 @@ class CodeIntelManager(threading.Thread):
     STATE_DESTROYED = ("destroyed",)  # connection shut down, child process dead
     STATE_ABORTED = ("aborted",)
 
-    _oop_command = '/usr/local/bin/codeintel'
+    _codeintel_command = '/usr/local/bin/codeintel'
     _oop_mode = 'pipe'
     _log_levels = ['WARNING']
     _state = STATE_UNINITIALIZED
@@ -426,7 +426,7 @@ class CodeIntelManager(threading.Thread):
         },
     ]
 
-    def __init__(self, service, progress_callback=None, shutdown_callback=None, oop_command=None, oop_mode=None, log_levels=None, env=None, prefs=None):
+    def __init__(self, service, progress_callback=None, shutdown_callback=None, codeintel_command=None, oop_mode=None, log_levels=None, env=None, prefs=None):
         self.log = logging.getLogger(logger_name + '.' + self.__class__.__name__)
         self.service = service
         self.languages = service.languages
@@ -434,8 +434,8 @@ class CodeIntelManager(threading.Thread):
         self._next_id = 0
         self._progress_callback = progress_callback
         self._shutdown_callback = shutdown_callback
-        if oop_command is not None:
-            self._oop_command = oop_command
+        if codeintel_command is not None:
+            self._codeintel_command = codeintel_command
         if oop_mode is not None:
             self._oop_mode = oop_mode
         if log_levels is not None:
@@ -523,17 +523,19 @@ class CodeIntelManager(threading.Thread):
         self.log.debug("initializing child process")
         conn = None
         try:
-            _oop_command = self._oop_command
-            if not os.path.exists(_oop_command):
-                _oop_command = os.path.basename(_oop_command)
-            cmd = [_oop_command]
+            _codeintel_command = self._codeintel_command
+            if not os.path.exists(_codeintel_command):
+                _codeintel_command = os.path.basename(_codeintel_command)
+            cmd = [_codeintel_command]
 
             database_dir = os.path.expanduser('~/.codeintel')
-            cmd += ['--database-dir', database_dir]
             cmd += ['--log-file', os.path.join(database_dir, 'codeintel.log')]
             for log_level in self._log_levels:
                 cmd += ['--log-level', log_level]
 
+            cmd += ['oop']
+
+            cmd += ['--database-dir', database_dir]
             _oop_mode = self._oop_mode
             if _oop_mode == 'pipe':
                 conn = _PipeConnection()
