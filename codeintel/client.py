@@ -92,6 +92,8 @@ class CodeIntel(object):
             self.log.debug("Got abort message")
             topic = 'error_message'
             message = "Code Intelligence Initialization Aborted"
+        elif state is CodeIntelManager.STATE_WAITING:
+            self.log.debug("Waiting for CodeIntel")
         elif state is CodeIntelManager.STATE_READY:
             self.log.debug("db is ready")
         if message:
@@ -380,6 +382,7 @@ class CodeIntelManager(threading.Thread):
     STATE_UNINITIALIZED = ("uninitialized",)  # not initialized
     STATE_CONNECTED = ("connected",)  # child process spawned, connection up; not ready
     STATE_BROKEN = ("broken",)  # database is broken and needs to be reset
+    STATE_WAITING = ("waiting",)  # waiting for CodeIntel
     STATE_READY = ("ready",)  # ready for use
     STATE_QUITTING = ("quitting",)  # shutting down
     STATE_DESTROYED = ("destroyed",)  # connection shut down, child process dead
@@ -569,7 +572,7 @@ class CodeIntelManager(threading.Thread):
             try:
                 self.pipe = conn.get_stream()
                 self._cmd_messge = True
-                self.log.info("Successfully connected with CodeIntel!")
+                self.log.info("Successfully connected with OOP CodeIntel!")
             except Exception:
                 self.pipe = None
 
@@ -590,7 +593,8 @@ class CodeIntelManager(threading.Thread):
             proc.wait()
         elif hasattr(proc, 'join'):
             proc.join()
-        self.log.debug("Child OOP codeintel process died!")
+        self.log.info("Child OOP CodeIntel process died!")
+        self.state = CodeIntelManager.STATE_WAITING
         self.close()
 
     def _send_init_requests(self):
@@ -733,7 +737,7 @@ class CodeIntelManager(threading.Thread):
                     name="CodeIntel Manager Request Sending Thread")
                 self._send_request_thread.daemon = True
                 self._send_request_thread.start()
-            update("Codeintel ready.", state=CodeIntelManager.STATE_READY)
+            update("CodeIntel ready.", state=CodeIntelManager.STATE_READY)
 
         self._send(callback=get_cpln_langs, command='get-languages', type='cpln')
         self._send(callback=get_citadel_langs, command='get-languages', type='citadel')
@@ -819,7 +823,7 @@ class CodeIntelManager(threading.Thread):
         try:
             self.pipe.write(buf)
         except Exception as e:
-            message = "Error writing data to codeintel: %s" % e
+            message = "Error writing data to OOP CodeIntel: %s" % e
             self.log.error(message)
             self._progress_callback(self, message)
             self.close()
@@ -843,15 +847,18 @@ class CodeIntelManager(threading.Thread):
                 while self.proc and self.pipe:
                     # Loop to read from the pipe
                     ch = self.pipe.read(1)
+                    if not ch:
+                        # nothing read, EOF
+                        raise IOError("Failed to read from socket")
                     if ch == b'{':
                         length = int(buf)
                         buf = ch
                         while len(buf) < length:
-                            last_size = len(buf)
-                            buf += self.pipe.read(length - len(buf))
-                            if len(buf) == last_size:
+                            data = self.pipe.read(length - len(buf))
+                            if not data:
                                 # nothing read, EOF
-                                raise IOError("Failed to read frame from socket")
+                                raise IOError("Failed to read from socket")
+                            buf += data
                         self.log.debug("Got codeintel response: %r" % buf)
                         if first_buf and buf == b'{}':
                             first_buf = False
@@ -883,9 +890,10 @@ class CodeIntelManager(threading.Thread):
                 if self.state in (CodeIntelManager.STATE_QUITTING, CodeIntelManager.STATE_DESTROYED):
                     self.log.debug("IOError in codeintel during shutdown; ignoring")
                     break  # this is intentional
-                message = "Error reading data from codeintel: %s" % e
+                message = "Error reading data from OOP CodeIntel: %s" % e
                 self.log.error(message)
                 self._progress_callback(self, message)
+                self.state = CodeIntelManager.STATE_WAITING
                 self.close()
 
             if self.proc is True:
