@@ -52,6 +52,8 @@ PRIORITY_BACKGROUND = 4     # info may be needed sometime
 
 logger_name = 'CodeIntel.codeintel'
 
+# logging.getLogger(logger_name).setLevel(logging.DEBUG)
+
 
 class CodeIntel(object):
     def __init__(self):
@@ -77,7 +79,7 @@ class CodeIntel(object):
 
     def _on_mgr_progress(self, mgr, message, state=None, response=None):
         topic = 'status_message'
-        self.log.debug("Progress: [%s] %s%% @%s=%s", message, state, mgr.state if mgr else "<None>")
+        self.log.debug("Progress: %s", message)
         if state is CodeIntelManager.STATE_DESTROYED:
             self.log.debug("startup failed: %s", message)
             topic = 'error_message'
@@ -111,11 +113,6 @@ class CodeIntel(object):
 
         # clean up dead managers
         with self._mgr_lock:
-            # Ensure only one activate call can happen at a time - issue 171.
-            if self._enabled:
-                return
-            self._enabled = True
-
             if self.mgr and not self.mgr.is_alive():
                 self.mgr = None
             # create a new manager as necessary
@@ -142,6 +139,7 @@ class CodeIntel(object):
                 # new codeintel manager; update all the buffers to use this new one
                 for buf in list(self.buffers.values()):
                     buf.mgr = self.mgr
+            self._enabled = True
         try:
             # run the new manager
             self.mgr.start(reset_db_as_necessary)
@@ -252,17 +250,62 @@ class _Connection(object):
 
 class _TCPConnection(_Connection):
     """A connection using TCP sockets"""
+
+    _read = None
+    _write = None
+
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(('127.0.0.1', 0))
         self.sock.listen(0)
 
     def get_commandline_args(self):
-        return ["--connect", "%s:%s" % self.sock.getsockname()]
+        return ['--connect', 'tcp:%s:%s' % self.sock.getsockname()]
 
     def get_stream(self):
         conn = self.sock.accept()
-        return conn[0].makefile('r+b', 0)
+        self._read = conn[0].makefile('rb', 0)
+        self._write = conn[0].makefile('wb', 0)
+        return self
+
+    def read(self, count):
+        return self._read.read(count)
+
+    def write(self, data):
+        return self._write.write(data)
+
+    def cleanup(self):
+        if self.sock:
+            self.sock.close()
+
+
+class _ServerConnection(_Connection):
+    """A connection using TCP sockets"""
+
+    sock = None
+    _read = None
+    _write = None
+
+    def __init__(self, host='127.0.0.1', port=9999):
+        self.host = host
+        self.port = port
+
+    def get_commandline_args(self):
+        return ['--connect', 'server:%s:%s' % (self.host, self.port)]
+
+    def get_stream(self):
+        conn = socket.create_connection((self.host, self.port))
+        self._read = conn.makefile('rb', 0)
+        self._write = conn.makefile('wb', 0)
+        self.sock = conn
+        return self
+
+    def read(self, count):
+        return self._read.read(count)
+
+    def write(self, data):
+        return self._write.write(data)
 
     def cleanup(self):
         if self.sock:
@@ -442,6 +485,13 @@ class CodeIntelManager(threading.Thread):
                 callback=lambda request, response: None,
             )
 
+    def close(self):
+        try:
+            self.pipe.close()
+        except:
+            pass  # The other end is dead, this is kinda pointless
+        self.pipe = None
+
     def kill(self):
         """
         Kill the subprocess. This may be safely called when the process has
@@ -457,16 +507,12 @@ class CodeIntelManager(threading.Thread):
             self.proc.kill()
         except:
             pass
-        try:
-            self.pipe.close()
-        except:
-            pass  # The other end is dead, this is kinda pointless
+        self.close()
         try:
             # Shut down the request sending thread (self._send_request_thread)
             self.unsent_requests.put((None, None))
         except:
             pass  # umm... no idea?
-        self.pipe = None
         if self._shutdown_callback:
             self._shutdown_callback(self)
 
@@ -493,23 +539,32 @@ class CodeIntelManager(threading.Thread):
                 conn = _PipeConnection()
             elif _oop_mode == 'tcp':
                 conn = _TCPConnection()
+            elif _oop_mode == 'server':
+                conn = _ServerConnection()
             else:
                 self.log.warn("Unknown codeintel oop mode %s, falling back to pipes", _oop_mode)
                 conn = _PipeConnection()
             cmd += conn.get_commandline_args()
 
-            self.log.debug("Running OOP: %s", " ".join(cmd))
-            self.proc = process.ProcessOpen(cmd, cwd=None, env=None)
-            assert self.proc.returncode is None, "Early process death!"
+            if _oop_mode == 'server':
+                self.log.warn("Please start OOP server with command: %s", " ".join(cmd))
+                self.proc = True
+            else:
+                self.log.debug("Running OOP: %s", " ".join(cmd))
+                self.proc = process.ProcessOpen(cmd, cwd=None, env=None)
+                assert self.proc.returncode is None, "Early process death!"
 
-            self._watchdog_thread = threading.Thread(
-                target=self._run_watchdog_thread,
-                name="CodeIntel Subprocess Watchdog Thread",
-                args=(self.proc,),
-            )
-            self._watchdog_thread.start()
+                self._watchdog_thread = threading.Thread(
+                    target=self._run_watchdog_thread,
+                    name="CodeIntel Subprocess Watchdog Thread",
+                    args=(self.proc,),
+                )
+                self._watchdog_thread.start()
 
-            self.pipe = conn.get_stream()
+            try:
+                self.pipe = conn.get_stream()
+            except Exception:
+                self.pipe = None
 
             conn.cleanup()  # This will remove the filesystem files (it keeps the fds open)
 
@@ -529,10 +584,7 @@ class CodeIntelManager(threading.Thread):
         elif hasattr(proc, 'join'):
             proc.join()
         self.log.debug("Child OOP codeintel process died!")
-        try:
-            self.kill()
-        except:
-            pass  # At app shutdown this can die uncleanly
+        self.close()
 
     def _send_init_requests(self):
         assert threading.current_thread().name != "MainThread", \
@@ -759,14 +811,18 @@ class CodeIntelManager(threading.Thread):
         buf = length + text
         try:
             self.pipe.write(buf)
-        except Exception as ex:
-            self.log.error("Failed to write to pipe (%s): (%i) %s", ex, len(text), text)
-            raise
+        except Exception as e:
+            message = "Error writing data to codeintel: %s" % e
+            self.log.error(message, exc_info=True)
+            self._progress_callback(self, message)
+            self.close()
 
     def run(self):
         """Event loop for the codeintel manager background thread"""
         assert threading.current_thread().name != "MainThread", \
             "CodeIntelManager.run should run on background thread!"
+
+        self.log.debug("CodeIntelManager thread started...")
 
         while True:
             self.init_child()
@@ -815,12 +871,20 @@ class CodeIntelManager(threading.Thread):
                                 else:
                                     self.log.debug("Discarding request %r", request)
                                 del self.requests[req_id]
-            except Exception:
+
+            except Exception as e:
                 if self.state in (CodeIntelManager.STATE_QUITTING, CodeIntelManager.STATE_DESTROYED):
                     self.log.debug("IOError in codeintel during shutdown; ignoring")
                     break  # this is intentional
-                self.log.exception("Error reading data from codeintel")
-                self.kill()
+                message = "Error reading data from codeintel: %s" % e
+                self.log.error(message, exc_info=True)
+                self._progress_callback(self, message)
+                self.close()
+
+            if self.proc is True:
+                time.sleep(3)
+
+        self.log.debug("CodeIntelManager thread ended!")
 
     def handle(self, response):
         """Handle a response from the codeintel process"""

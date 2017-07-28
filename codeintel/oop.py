@@ -113,9 +113,9 @@ def oop_driver(database_dir, connect=None, log_levels=[], log_file=None, import_
         sys.stderr = stream
         sys.stdout = stream
     else:
-        logging.basicConfig(stream=DummyStream())
+        logging.basicConfig(stream=TextStream(sys.stderr))
 
-    logging.getLogger('codeintel.oop.driver').setLevel(logging.INFO)
+    logging.getLogger('codeintel.oop').setLevel(logging.INFO)
 
     for log_level in log_levels:
         name, _, level = log_level.rpartition(':')
@@ -145,24 +145,40 @@ def oop_driver(database_dir, connect=None, log_levels=[], log_file=None, import_
     try:
         if connect and connect not in ('-', 'stdin', '/dev/stdin'):
             if connect.startswith('pipe:'):
-                pipe_name = connect.split(':', 1)[1]
-                log.debug("connecting to pipe: %s", pipe_name)
+                connect = connect[5:]
+                log.info("Connecting to pipe: %s", connect)
                 if sys.platform.startswith('win'):
                     # using Win32 pipes
                     from win32_named_pipe import Win32Pipe
-                    fd_out = fd_in = Win32Pipe(name=pipe_name, client=True)
+                    fd_out = fd_in = Win32Pipe(name=connect, client=True)
                 else:
                     # Open the write end first, so the parent doesn't hang
-                    fd_out = open(os.path.join(pipe_name, 'out'), 'wb', 0)
-                    fd_in = open(os.path.join(pipe_name, 'in'), 'rb', 0)
+                    fd_out = open(os.path.join(connect, 'out'), 'wb', 0)
+                    fd_in = open(os.path.join(connect, 'in'), 'rb', 0)
                 log.debug("opened: %r", fd_in)
-            else:
+            elif connect.startswith('tcp:'):
+                connect = connect[4:]
                 host, _, port = connect.partition(':')
                 port = int(port)
-                log.debug("connecting to: %s:%s", host, port)
+                log.info("Connecting to: %s:%s", host, port)
                 conn = socket.create_connection((host, port))
                 fd_in = conn.makefile('rb', 0)
                 fd_out = conn.makefile('wb', 0)
+            elif connect.startswith('server:'):
+                connect = connect[7:]
+                host, _, port = connect.partition(':')
+                port = int(port)
+                log.info("Server running on: %s:%s", host, port)
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind((host, port))
+                sock.listen(0)
+                conn = sock.accept()
+                log.info("Client accepted!")
+                fd_in = conn[0].makefile('rb', 0)
+                fd_out = conn[0].makefile('wb', 0)
+            else:
+                pass
         else:
             # force unbuffered stdout
             fd_in = sys.stdin
@@ -176,10 +192,7 @@ def oop_driver(database_dir, connect=None, log_levels=[], log_file=None, import_
 
     from codeintel2.oop import Driver
     driver = Driver(db_base_dir=database_dir, fd_in=fd_in, fd_out=fd_out)
-    try:
-        driver.start()
-    except KeyboardInterrupt:
-        pass
+    driver.start()
 
 
 def set_idle_priority(log):
@@ -253,13 +266,16 @@ def main():
                         help="Paths to add to the Python import path")
     args = parser.parse_args()
 
-    oop_driver(
-        database_dir=args.database_dir,
-        connect=args.connect,
-        log_levels=args.log_level,
-        log_file=args.log_file,
-        import_path=args.import_path
-    )
+    try:
+        oop_driver(
+            database_dir=args.database_dir,
+            connect=args.connect,
+            log_levels=args.log_level,
+            log_file=args.log_file,
+            import_path=args.import_path
+        )
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == '__main__':
