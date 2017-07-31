@@ -206,7 +206,6 @@ ciElementTree_ext = Extension(
 
 install_requires = [
     '3to2',
-    'apsw',
     'applib',
     'chardet',
     'cmdln',
