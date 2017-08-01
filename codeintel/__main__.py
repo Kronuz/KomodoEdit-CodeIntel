@@ -250,6 +250,7 @@ class Shell(cmdln.Cmdln):
         ${cmd_usage}
         ${cmd_option_list}
         """
+        import atexit
         from codeintel2.oop import Driver
 
         old_sys_path = set(os.path.abspath(os.path.join(p)) for p in sys.path)
@@ -310,6 +311,7 @@ class Shell(cmdln.Cmdln):
             os.makedirs(opts.database_dir)
 
         driver = Driver(db_base_dir=opts.database_dir, fd_in=fd_in, fd_out=fd_out)
+        atexit.register(driver.finalize)
         driver.start()
 
     #  _            _
