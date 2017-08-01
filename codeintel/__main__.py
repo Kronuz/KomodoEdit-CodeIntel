@@ -178,6 +178,11 @@ class Shell(cmdln.Cmdln):
     def set_traceback(self, option, opt_str, value, parser):
         self.traceback = True
 
+    def set_stacktracer(self, option, opt_str, value, parser):
+        from stacktracer import Stacktracer
+        self.tracer = Stacktracer('stacktracer{ext}', traceback_interval=5, stats_interval=10)
+        self.tracer.start()
+
     def set_verbosity(self, option, opt_str, value, parser):
         self.verbosity += 1
         if self.verbosity == 1:
@@ -219,6 +224,9 @@ class Shell(cmdln.Cmdln):
         optparser.add_option("--traceback",
             action="callback", callback=self.set_traceback,
             help="Show full traceback on error.")
+        optparser.add_option("--stacktracer",
+            action="callback", callback=self.set_stacktracer,
+            help="Save stacktracer information for profiling.")
         return optparser
 
     #   ___   ___  _ __
