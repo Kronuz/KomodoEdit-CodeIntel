@@ -88,6 +88,9 @@ class Shell(cmdln.Cmdln):
     description = "CodeIntel v%s" % __version__
     version = __version__
 
+    profiling = False
+    traceback = False
+
     def __init__(self, *args, **kwargs):
         cmdln.Cmdln.__init__(self, *args, **kwargs)
 
