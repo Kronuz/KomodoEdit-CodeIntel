@@ -51,8 +51,10 @@ PRIORITY_OPEN = 3           # UI will likely require info on this file soon
 PRIORITY_BACKGROUND = 4     # info may be needed sometime
 
 logger_name = 'CodeIntel.codeintel'
+logger_level = logging.INFO  # INFO
 
-logging.getLogger(logger_name).setLevel(logging.INFO)  # INFO
+logger = logging.getLogger(logger_name)
+logger.setLevel(logger_level)
 
 
 class CodeIntel(object):
@@ -151,7 +153,7 @@ class CodeIntel(object):
 
     @property
     def enabled(self):
-        return self._enabled
+        return self._enabled and self.mgr and self.mgr.is_alive()
 
     def deactivate(self):
         with self._mgr_lock:
@@ -469,15 +471,15 @@ class CodeIntelManager(threading.Thread):
 
     def shutdown(self):
         """Abort any outstanding requests and shut down gracefully"""
-        self.abort()
         if self.state is CodeIntelManager.STATE_DESTROYED:
             return  # already dead
+        self.state = CodeIntelManager.STATE_QUITTING
+        self.abort()
         if not self.pipe:
             # not quite dead, but already disconnected... ungraceful shutdown
             self.kill()
             return
         self._send(command='quit', callback=self.do_quit)
-        self.state = CodeIntelManager.STATE_QUITTING
 
     def abort(self):
         """Abort all running requests"""
@@ -835,7 +837,7 @@ class CodeIntelManager(threading.Thread):
 
         self.log.debug("CodeIntelManager thread started...")
 
-        while True:
+        while self.state not in (CodeIntelManager.STATE_QUITTING, CodeIntelManager.STATE_DESTROYED):
             ok = False
 
             self.init_child()
