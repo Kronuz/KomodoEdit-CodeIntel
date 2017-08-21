@@ -43,8 +43,6 @@ try:
 except ImportError:
     import Queue as queue
 
-import sublime
-
 # Priorities at which scanning requests can be scheduled.
 PRIORITY_CONTROL = 0        # Special sentinal priority to control scheduler
 PRIORITY_IMMEDIATE = 1      # UI is requesting info on this file now
@@ -60,7 +58,12 @@ logger.setLevel(logger_level)
 
 
 class CodeIntel(object):
-    def __init__(self):
+    def __init__(self, main_thread_runner):
+        """
+        main_thread_runner - Must be a function receiving a single parameter,
+                                a function to be executed in the main thread.
+        """
+        self._main_thread_runner = main_thread_runner
         self.log = logging.getLogger(logger_name + '.' + self.__class__.__name__)
         self.mgr = None
         self._mgr_lock = threading.Lock()
@@ -952,7 +955,7 @@ class CodeIntelManager(threading.Thread):
                 self.requests[req_id] = (callback, request, time.time())
             if callback:
                 callback(request, response)
-        sublime.set_timeout(_handle, 0)  # Pass to main thread
+        self.service._main_thread_runner(_handle)  # Do handling in main thread
 
     def do_scan_complete(self, response):
         """Scan complete unsolicited response"""
