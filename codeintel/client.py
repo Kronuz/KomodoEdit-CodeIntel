@@ -37,6 +37,7 @@ import logging
 import socket
 import weakref
 import functools
+from distutils.spawn import find_executable
 
 try:
     import queue
@@ -339,6 +340,30 @@ if sys.platform.startswith("win"):
         def cleanup(self):
             return
     del Win32Pipe
+
+    CODEINTEL_COMMAND = 'codeintel.exe'
+    CODEINTEL_PATHS = (
+        '/',
+        '/Program Files',
+        '/Program Files/Python',
+        '/Program Files (x86)',
+        '/Program Files (x86)/Python',
+        '~/AppData/Local/Programs',
+        '~/AppData/Local/Programs/Python',
+        '~/AppData/Local/Programs (x86)',
+        '~/AppData/Local/Programs (x86)/Python',
+    )
+    CODEINTEL_SUBPATHS = (
+        'Python/Scripts'
+        'Python26/Scripts',
+        'Python27/Scripts',
+        'Python33/Scripts',
+        'Python34/Scripts',
+        'Python35/Scripts',
+        'Python36/Scripts',
+        'Python37/Scripts',
+    )
+
 else:
     # posix pipe class
     class _PipeConnection(_Connection):
@@ -384,6 +409,13 @@ else:
             self._read.close()
             self._write.close()
 
+    CODEINTEL_COMMAND = 'codeintel'
+    CODEINTEL_PATHS = (
+        '/usr',
+        '/usr/local',
+    )
+    CODEINTEL_SUBPATHS = ('bin',)
+
 
 class CodeIntelManager(threading.Thread):
     STATE_UNINITIALIZED = ("uninitialized",)  # not initialized
@@ -395,7 +427,7 @@ class CodeIntelManager(threading.Thread):
     STATE_DESTROYED = ("destroyed",)  # connection shut down, child process dead
     STATE_ABORTED = ("aborted",)
 
-    _codeintel_command = '/usr/local/bin/codeintel'
+    _codeintel_command = None
     _oop_mode = 'pipe'
     _log_levels = ['WARNING']
     _state = STATE_UNINITIALIZED
@@ -531,6 +563,27 @@ class CodeIntelManager(threading.Thread):
         if self._shutdown_callback:
             self._shutdown_callback(self)
 
+    def find_command(self):
+        codeintel_command = self._codeintel_command
+        if codeintel_command:
+            if os.path.exists(codeintel_command):
+                return codeintel_command
+            codeintel_command = find_executable(codeintel_command)
+            if codeintel_command:
+                return codeintel_command
+
+        if os.path.exists(CODEINTEL_COMMAND):
+            return CODEINTEL_COMMAND
+        codeintel_command = find_executable(CODEINTEL_COMMAND)
+        if codeintel_command:
+            return codeintel_command
+
+        for path in CODEINTEL_PATHS:
+            for subpath in CODEINTEL_SUBPATHS:
+                codeintel_command = os.path.expanduser(os.path.join(path, subpath, CODEINTEL_COMMAND))
+                if os.path.exists(codeintel_command):
+                    return codeintel_command
+
     def init_child(self):
         from . import process
         assert threading.current_thread().name != "MainThread", \
@@ -538,10 +591,8 @@ class CodeIntelManager(threading.Thread):
         self.log.debug("initializing child process")
         conn = None
         try:
-            _codeintel_command = self._codeintel_command
-            if not os.path.exists(_codeintel_command):
-                _codeintel_command = os.path.basename(_codeintel_command)
-            cmd = [_codeintel_command]
+            codeintel_command = self.find_command()
+            cmd = [codeintel_command]
 
             database_dir = os.path.expanduser('~/.codeintel')
             cmd += ['--log-file', os.path.join(database_dir, 'codeintel.log')]
