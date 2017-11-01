@@ -4,8 +4,8 @@ CodeIntel
 .. image:: https://travis-ci.org/SublimeCodeIntel/CodeIntel.svg
     :target: https://travis-ci.org/SublimeCodeIntel/CodeIntel
 
-.. image:: https://ci.appveyor.com/api/projects/status/github/SublimeCodeIntel/CodeIntel?svg=true
-    :target: https://ci.appveyor.com/project/SublimeCodeIntel/CodeIntel
+.. image:: https://ci.appveyor.com/api/projects/status/github/Kronuz/CodeIntel?svg=true
+    :target: https://ci.appveyor.com/project/Kronuz/CodeIntel
 
 Code intelligence ported from Open Komodo Editor. Supports all the languages
 Komodo Editor supports for Code Intelligence (CIX, CodeIntel2):
